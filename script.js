@@ -1,7 +1,11 @@
 // Game State Object (Easier to manage and save)
 let gameState = {
     kingdomName: "Camelot",
-    rulerName: "King Arthur",
+    houseName: "Pendragon", 
+    rulerName: "Arthur",
+    rulerTitle: "King", 
+    titleType: "king",
+    isMale: true, 
     age: 20,
     health: 100,
     gold: 100,
@@ -58,6 +62,10 @@ function loadGame() {
         gameState = JSON.parse(savedData); 
         
         // strictly check for undefined so a value of 0 doesn't trigger a false reset
+        if (gameState.houseName === undefined) gameState.houseName = "Pendragon";
+        if (gameState.rulerTitle === undefined) gameState.rulerTitle = "King";
+        if (gameState.titleType === undefined) gameState.titleType = "king";
+        if (gameState.isMale === undefined) gameState.isMale = true;
         if (gameState.children === undefined) gameState.children = [];
         if (gameState.historicalOffspring === undefined) gameState.historicalOffspring = [];
         if (gameState.kingdomName === undefined) gameState.kingdomName = "Camelot";
@@ -81,6 +89,7 @@ function loadGame() {
 
 function updateUI() {
     // update standard stats
+    ui.name.innerHTML = `${gameState.rulerTitle} ${gameState.rulerName} <span style="font-size: 0.6em; display: block; color: var(--gold); margin-top: 4px;">House ${gameState.houseName}</span>`;
     ui.kingdom.innerText = gameState.kingdomName;
     ui.name.innerText = gameState.rulerName;
     ui.age.innerText = gameState.age;
@@ -162,7 +171,8 @@ function updateUI() {
             
             li.innerHTML = `
                 <div style="position: absolute; left: -8px; top: 0; width: 12px; height: 12px; background: var(--wood-dark); border-radius: 50%; border: 2px solid var(--gold);"></div>
-                <div style="font-size: 1.1em; color: var(--wood-dark);"><b>${index + 1}. King/Queen ${ruler.name}</b> <span style="font-size: 0.8em; color: #555;">(Ruled ${ruler.reignLength} yrs)</span></div>
+                <div style="position: absolute; left: -8px; top: 0; width: 12px; height: 12px; background: var(--wood-dark); border-radius: 50%; border: 2px solid var(--gold);"></div>
+                <div style="font-size: 1.1em; color: var(--wood-dark);"><b>${index + 1}. ${ruler.name}</b> <span style="font-size: 0.8em; color: #555;">(Ruled ${ruler.reignLength} yrs)</span></div>
                 <div style="font-size: 0.85em; color: #444; margin-top: 4px;"><i class="fas fa-ring" style="color: #8e44ad;"></i> Married: ${ruler.spouse}</div>
                 <div style="font-size: 0.85em; color: #444; margin-top: 2px;"><i class="fas fa-baby" style="color: #27ae60;"></i> Offspring: ${ruler.children}</div>
             `;
@@ -449,9 +459,8 @@ function checkDeath(reason = "poor health") {
         // check if we got kids to take over
         if (gameState.children.length > 0) {
             
-            // shift removes the first item from the array and returns it to us
-            const heir = gameState.children.shift(); 
-            gameState.children.forEach(kid => kid.isSibling = true);
+            // peek at the heir without removing them yet so the popup has their name
+            const heir = gameState.children[0]; 
             
             Swal.fire({
                 title: 'The Ruler is Dead!',
@@ -460,27 +469,49 @@ function checkDeath(reason = "poor health") {
                 confirmButtonText: 'Continue Reign',
                 confirmButtonColor: '#8b5a2b',
                 background: '#f4e8c1',
-                color: '#333'
+                color: '#333',
+                allowOutsideClick: false
             }).then(() => {
-                // snapshot using the historical tracker so married-off kids are remembered
-                // and leftover siblings from the previous generation are safely excluded
+                
+                // 1. ARCHIVE THE OLD RULER FIRST (before any stats change)
                 gameState.pastRulers.push({
-                    name: gameState.rulerName,
+                    name: `${gameState.rulerTitle} ${gameState.rulerName} of House ${gameState.houseName}`,
                     spouse: gameState.spouse ? gameState.spouse.name : "Unmarried",
                     reignLength: gameState.age - 20, 
                     children: gameState.historicalOffspring.length > 0 ? gameState.historicalOffspring.join(", ") : "None"
                 });
 
-                // clear the spouse and offspring records for the new young ruler
+                // clear the old ruler's personal family data
                 gameState.spouse = null;
                 gameState.historicalOffspring = [];
+
+                // 2. SUCCESSION (bring in the heir)
+                const actualHeir = gameState.children.shift(); 
                 
-                // swap the stats over to the kid
-                gameState.rulerName = heir.name;
-                gameState.age = heir.age;
+                // the remaining royal family members are now siblings to the new ruler
+                gameState.children.forEach(kid => kid.isSibling = true); 
+
+                // update name and gender
+                gameState.rulerName = actualHeir.name;
+                gameState.isMale = actualHeir.isMale !== undefined ? actualHeir.isMale : true;
+                
+                // assign gendered title based on the realm rank
+                if (gameState.isMale) {
+                    if (gameState.titleType === "emperor") gameState.rulerTitle = "Emperor";
+                    else if (gameState.titleType === "duke") gameState.rulerTitle = "Duke";
+                    else if (gameState.titleType === "sultan") gameState.rulerTitle = "Sultan";
+                    else gameState.rulerTitle = "King";
+                } else {
+                    if (gameState.titleType === "emperor") gameState.rulerTitle = "Empress";
+                    else if (gameState.titleType === "duke") gameState.rulerTitle = "Duchess";
+                    else if (gameState.titleType === "sultan") gameState.rulerTitle = "Sultana";
+                    else gameState.rulerTitle = "Queen";
+                }
+
+                gameState.age = actualHeir.age;
                 
                 // apply inherited trait modifiers to starting baseline
-                const heirTrait = heir.trait || royalTraits[0];
+                const heirTrait = actualHeir.trait || royalTraits[0];
                 gameState.health = 100 + heirTrait.modHealth;
                 gameState.gold += heirTrait.modGold;
                 gameState.prestige += heirTrait.modPrestige;
@@ -488,7 +519,8 @@ function checkDeath(reason = "poor health") {
                 // safety bounds
                 if (gameState.health > 100) gameState.health = 100;
                 
-                addLogEntry(`${heir.title} ${heir.name} the ${heirTrait.name} has ascended to the throne.`);
+                addLogEntry(`${gameState.rulerTitle} ${gameState.rulerName} the ${heirTrait.name} has ascended to the throne.`);
+                
                 saveGame();
                 updateUI();
             });
@@ -512,59 +544,107 @@ function checkDeath(reason = "poor health") {
 
 // This asks the player for names when a new dynasty starts
 function startNewDynasty() {
+    const formHtml = `
+        <div style="display: flex; flex-direction: column; gap: 15px; text-align: left; font-family: 'Lora', serif; margin-top: 10px;">
+            <div>
+                <label style="font-weight: bold; font-size: 0.9em; color: var(--wood-dark);">Ruler First Name:</label>
+                <input id="c-fname" class="swal2-input" style="margin: 5px 0 0 0; width: 100%; box-sizing: border-box;" placeholder="e.g. Arthur">
+            </div>
+            <div>
+                <label style="font-weight: bold; font-size: 0.9em; color: var(--wood-dark);">House / Dynasty Name:</label>
+                <input id="c-hname" class="swal2-input" style="margin: 5px 0 0 0; width: 100%; box-sizing: border-box;" placeholder="e.g. Pendragon">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; font-size: 0.9em; color: var(--wood-dark);">Gender:</label>
+                    <select id="c-gender" class="swal2-select" style="margin: 5px 0 0 0; width: 100%; display: flex; box-sizing: border-box;">
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; font-size: 0.9em; color: var(--wood-dark);">Realm Rank:</label>
+                    <select id="c-title" class="swal2-select" style="margin: 5px 0 0 0; width: 100%; display: flex; box-sizing: border-box;">
+                        <option value="king">Kingdom</option>
+                        <option value="emperor">Empire</option>
+                        <option value="duke">Duchy</option>
+                        <option value="sultan">Sultanate</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label style="font-weight: bold; font-size: 0.9em; color: var(--wood-dark);">Realm Name:</label>
+                <input id="c-kname" class="swal2-input" style="margin: 5px 0 0 0; width: 100%; box-sizing: border-box;" placeholder="e.g. Camelot">
+            </div>
+        </div>
+    `;
+
     Swal.fire({
         title: 'Found Your Dynasty',
-        text: 'What is the name of your new ruler?',
-        input: 'text',
-        inputPlaceholder: 'e.g. Arthur, Elizabeth, Ragnar',
-        confirmButtonText: 'Next',
-        confirmButtonColor: '#8b5a2b',
+        html: formHtml,
+        confirmButtonText: 'Begin Reign',
+        confirmButtonColor: '#27ae60',
         background: '#f4e8c1',
-        allowOutsideClick: false // Don't let them click away
-    }).then((rulerResult) => {
-        // Grab what they typed, or default to "A Nameless King" if they left it blank
-        const newRuler = rulerResult.value || "A Nameless King";
+        allowOutsideClick: false,
+        preConfirm: () => {
+            // grab all form values
+            const fname = document.getElementById('c-fname').value || "Nameless";
+            const hname = document.getElementById('c-hname').value || "Nobody";
+            const gender = document.getElementById('c-gender').value;
+            const titleType = document.getElementById('c-title').value;
+            const kname = document.getElementById('c-kname').value || "The Unknown Lands";
 
-        // Chain the second popup to ask for the Kingdom name
-        Swal.fire({
-            title: 'Name Your Realm',
-            text: `What is the name of the land ${newRuler} rules?`,
-            input: 'text',
-            inputPlaceholder: 'e.g. Camelot, Westeros, Rohan',
-            confirmButtonText: 'Begin Reign',
-            confirmButtonColor: '#27ae60',
-            background: '#f4e8c1',
-            allowOutsideClick: false
-        }).then((kingdomResult) => {
-            const newKingdom = kingdomResult.value || "The Unknown Lands";
-
-            // explicitly reset EVERY stat so nothing carries over from a previous life
-            gameState.rulerName = newRuler;
-            gameState.kingdomName = newKingdom;
-            gameState.age = 20;
-            gameState.health = 100;
-            gameState.gold = 100;
-            gameState.population = 500;
-            gameState.prestige = 50; 
-            gameState.food = 1000; 
-            gameState.children = [];
-            gameState.spouse = null;
-            gameState.pastRulers = [];
-            gameState.historicalOffspring = [];
-            
-            // wipe the infrastructure slate clean
-            gameState.buildings = {};
-            for (const key in buildingData) {
-                gameState.buildings[key] = 0;
+            // assign correct title prefix based on gender and rank
+            let finalTitle = "";
+            if (gender === "male") {
+                if (titleType === "king") finalTitle = "King";
+                if (titleType === "emperor") finalTitle = "Emperor";
+                if (titleType === "duke") finalTitle = "Duke";
+                if (titleType === "sultan") finalTitle = "Sultan";
+            } else {
+                if (titleType === "king") finalTitle = "Queen";
+                if (titleType === "emperor") finalTitle = "Empress";
+                if (titleType === "duke") finalTitle = "Duchess";
+                if (titleType === "sultan") finalTitle = "Sultana";
             }
 
-            // Wipe the old log and start fresh
-            if (ui.log) ui.log.innerHTML = "";
-            addLogEntry(`The reign of ${newRuler} of ${newKingdom} has begun!`);
+            return { fname, hname, isMale: gender === "male", titleType, finalTitle, kname };
+        }
+    }).then((result) => {
+        const data = result.value;
 
-            saveGame();
-            updateUI();
-        });
+        // apply character creation data
+        gameState.rulerName = data.fname;
+        gameState.houseName = data.hname;
+        gameState.isMale = data.isMale;
+        gameState.rulerTitle = data.finalTitle;
+        gameState.titleType = data.titleType;
+        gameState.kingdomName = data.kname;
+        
+        // reset stats
+        gameState.age = 20;
+        gameState.health = 100;
+        gameState.gold = 100;
+        gameState.population = 500;
+        gameState.prestige = 50; 
+        gameState.food = 1000; 
+        
+        // wipe family and infrastructure
+        gameState.children = [];
+        gameState.historicalOffspring = [];
+        gameState.spouse = null;
+        gameState.pastRulers = [];
+        
+        gameState.buildings = {};
+        for (const key in buildingData) {
+            gameState.buildings[key] = 0;
+        }
+
+        if (ui.log) ui.log.innerHTML = "";
+        addLogEntry(`The reign of ${data.finalTitle} ${data.fname} of House ${data.hname} has begun!`);
+
+        saveGame();
+        updateUI();
     });
 }
 
