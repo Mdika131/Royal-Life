@@ -6,6 +6,7 @@ let gameState = {
     health: 100,
     gold: 100,
     population: 500,
+    prestige: 50,
     children: []
 };
 
@@ -17,6 +18,7 @@ const ui = {
     health: document.getElementById("health"),
     gold: document.getElementById("gold"),
     population: document.getElementById("population"),
+    prestige: document.getElementById("prestige"),
     log: document.getElementById("event-log"),
     childrenList: document.getElementById("children-list")
 };
@@ -51,6 +53,7 @@ function updateUI() {
     ui.health.innerText = gameState.health;
     ui.gold.innerText = gameState.gold;
     ui.population.innerText = gameState.population;
+    ui.prestige.innerText = gameState.prestige;
     
     // safety check: only try to render kids if the html element exists
     if (ui.childrenList) {
@@ -70,78 +73,111 @@ function updateUI() {
 
 // The Core Game Loop
 function ageOneYear() {
-    // age up the family immediately
     gameState.age++;
     gameState.children.forEach(kid => kid.age++);
+
+    // 1. Economy: Taxes & Upkeep
+    const taxesCollected = Math.floor(gameState.population / 10); // 1 gold for every 10 people
+    const upkeepCost = 25; // fixed cost to run the castle
+    const netProfit = taxesCollected - upkeepCost;
+
+    gameState.gold += netProfit;
+
+    // 2. Realism: Natural Death Check
+    // Once over 60, there is a cumulative 3% chance per year of dying of old age
+    if (gameState.age > 60) {
+        const deathChance = (gameState.age - 60) * 0.03;
+        if (Math.random() < deathChance) {
+            gameState.health = 0; // force the death sequence
+            checkDeath("natural causes");
+            return; // stop the function here
+        }
+    }
     
-    // grab a random event
     const randomEvent = events[Math.floor(Math.random() * events.length)];
 
-    // trigger the choice popup
     Swal.fire({
-        title: randomEvent.title,
-        text: randomEvent.text,
-        icon: 'question',
-        showDenyButton: true, // This turns on the second choice button
+        title: `Year ${gameState.age} Report`,
+        html: `
+            <div style="text-align: left; background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                <b>Taxes:</b> +${taxesCollected} 🪙<br>
+                <b>Upkeep:</b> -${upkeepCost} 🪙<br>
+                <b>Net:</b> ${netProfit >= 0 ? '+' : ''}${netProfit} 🪙
+            </div>
+            <hr>
+            <p style="margin-top: 15px;">${randomEvent.text}</p>
+        `,
+        icon: 'info',
+        showDenyButton: true,
         confirmButtonText: randomEvent.choices[0].text,
         denyButtonText: randomEvent.choices[1].text,
-        confirmButtonColor: '#27ae60', // Match our primary green button
-        denyButtonColor: '#8b5a2b', // Match our secondary brown button
+        confirmButtonColor: '#27ae60',
+        denyButtonColor: '#8b5a2b',
         background: '#f4e8c1',
         color: '#333',
-        allowOutsideClick: false // force them to make a choice
+        allowOutsideClick: false
     }).then((result) => {
-        
-        // figure out which button they clicked
         const selectedChoice = result.isConfirmed ? randomEvent.choices[0] : randomEvent.choices[1];
 
-        // apply the effects of their specific choice
+        // apply choice effects (including prestige if added to events later)
         gameState.gold += selectedChoice.goldChange;
         gameState.population += selectedChoice.popChange;
         gameState.health += selectedChoice.healthChange;
+        if (selectedChoice.prestigeChange) gameState.prestige += selectedChoice.prestigeChange;
 
-        // stop numbers from going out of bounds
+        // keep stats within reasonable bounds
         if (gameState.gold < 0) gameState.gold = 0;
         if (gameState.population < 0) gameState.population = 0;
         if (gameState.health > 100) gameState.health = 100;
         if (gameState.health < 0) gameState.health = 0; 
 
-        // log the event AND the specific choice they made
-        addLogEntry(`Year ${gameState.age}: ${randomEvent.title} - You chose to ${selectedChoice.text}.`);
+        addLogEntry(`Year ${gameState.age}: ${randomEvent.title} (Net Gold: ${netProfit})`);
         
-        // save, update screen, and check if that choice killed them
         saveGame();
         updateUI();
         checkDeath();
     });
 }
 
-// list of random royal names
-const names = ["Henry", "Elizabeth", "Edward", "Mary", "Charles", "Anne", "Victoria", "Richard"];
-
 function haveChild() {
-    // grab a random name for the baby
-    const randomName = names[Math.floor(Math.random() * names.length)];
-    
-    // safety check: ensure array exists before pushing
-    if (!gameState.children) {
-        gameState.children = [];
-    }
+    // trigger a popup asking for the baby's name
+    Swal.fire({
+        title: 'A Royal Birth!',
+        text: 'What shall you name your new heir?',
+        input: 'text',
+        inputPlaceholder: 'e.g. William, Mary, Henry',
+        confirmButtonText: 'Name Child',
+        confirmButtonColor: '#27ae60', // Matches our primary button theme
+        background: '#f4e8c1',
+        color: '#333',
+        allowOutsideClick: false // force them to type a name
+    }).then((result) => {
+        // Grab what they typed. If they leave it blank, give a funny default name.
+        const babyName = result.value || "A Nameless Royal";
 
-    // push a new object into the children array
-    gameState.children.push({
-        name: randomName,
-        age: 0
+        // safety check: ensure array exists before pushing
+        if (!gameState.children) {
+            gameState.children = [];
+        }
+
+        // push the new baby into the children array
+        gameState.children.push({
+            name: babyName,
+            age: 0
+        });
+
+        addLogEntry(`A new heir, ${babyName}, was born!`);
+        
+        saveGame();
+        updateUI();
     });
-
-    addLogEntry(`A new heir, ${randomName}, was born!`);
-    
-    saveGame();
-    updateUI();
 }
-
-function checkDeath() {
+function checkDeath(reason = "poor health") {
     if (gameState.health <= 0) {
+        // use the reason in the text
+        const deathText = reason === "natural causes" 
+            ? `passed away peacefully at the age of ${gameState.age}.` 
+            : `has died due to ${reason}.`;
         
         // check if we got kids to take over
         if (gameState.children.length > 0) {
