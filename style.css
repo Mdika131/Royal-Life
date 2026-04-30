@@ -1,0 +1,264 @@
+/* --- Color Palette & Variables --- */
+:root {
+    --bg-dark: #1a1a1a;
+    --parchment-light: #fdf6e3;
+    --parchment-dark: #e8dcc4;
+    --wood-dark: #2c1e16;
+    --wood-light: #4a3525;
+    --gold: #d4af37;
+    --red: #8b2b2b;
+    --text-main: #333333;
+}
+
+/* --- Global Settings --- */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Lora', serif;
+    background-color: var(--bg-dark);
+    /* Creates a subtle dark wood/tavern background feel */
+    background-image: radial-gradient(circle at center, #2a2a2a 0%, #111 100%);
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+}
+
+/* --- Main Game Container --- */
+.game-container {
+    background-color: var(--parchment-light);
+    /* Double border effect to look like an important document */
+    border: 3px solid var(--gold);
+    outline: 8px solid var(--wood-dark);
+    border-radius: 8px;
+    padding: 30px;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    position: relative;
+}
+
+/* --- Typography --- */
+h1, h2, h3 {
+    font-family: 'Cinzel', serif;
+    text-align: center;
+    margin-top: 0;
+    color: var(--wood-dark);
+}
+
+.game-title {
+    font-size: 2.2em;
+    border-bottom: 2px solid var(--wood-light);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+/* --- Ruler Banner --- */
+.ruler-banner {
+    background: linear-gradient(135deg, var(--wood-light), var(--wood-dark));
+    color: var(--parchment-light);
+    text-align: center;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 25px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    border: 2px solid var(--gold);
+}
+
+.ruler-banner h2 {
+    color: var(--gold);
+    font-size: 1em;
+    margin-bottom: 5px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.ruler-name-display {
+    color: white;
+    font-size: 1.8em;
+    margin: 0;
+}
+
+/* --- Stats Grid --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.stat-box {
+    background-color: var(--parchment-dark);
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+}
+
+.stat-icon {
+    font-size: 1.8em;
+    margin-right: 15px;
+    color: var(--wood-light);
+}
+
+/* Custom Icon Colors */
+.text-red { color: #c0392b; }
+.text-gold { color: #d35400; } /* Slightly darker gold for contrast */
+.text-blue { color: #2980b9; }
+
+.stat-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.85em;
+    text-transform: uppercase;
+    font-weight: bold;
+    color: #666;
+}
+
+.stat-value {
+    font-size: 1.3em;
+    font-family: 'Cinzel', serif;
+    font-weight: bold;
+    color: var(--wood-dark);
+}
+
+/* --- Buttons --- */
+button {
+    font-family: 'Cinzel', serif;
+    font-weight: bold;
+    border: 2px solid var(--wood-dark);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Pop-in animation on hover */
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+
+button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 18px;
+    font-size: 1.5em;
+    background: linear-gradient(to bottom, #27ae60, #2ecc71);
+    color: white;
+    margin-bottom: 15px;
+    border-color: #1e8449;
+}
+
+.primary-btn:hover { background: linear-gradient(to bottom, #2ecc71, #27ae60); }
+
+.secondary-actions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.action-btn, .danger-btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 1.1em;
+    color: white;
+}
+
+.action-btn {
+    background: linear-gradient(to bottom, var(--wood-light), var(--wood-dark));
+}
+
+.danger-btn {
+    background: linear-gradient(to bottom, #c0392b, #922b21);
+    border-color: #641e16;
+}
+
+/* --- Info Panels (Family & Log) --- */
+.info-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.panel {
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 15px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+
+.panel h3 {
+    font-size: 1.2em;
+    border-bottom: 1px solid var(--gold);
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+/* Event Log specifics */
+.log-container {
+    height: 180px;
+    overflow-y: auto;
+}
+
+/* Custom beautiful scrollbar for the log */
+.log-container::-webkit-scrollbar {
+    width: 8px;
+}
+.log-container::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+    border-radius: 4px;
+}
+.log-container::-webkit-scrollbar-thumb {
+    background: var(--wood-light); 
+    border-radius: 4px;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+li {
+    padding: 8px 5px;
+    border-bottom: 1px dashed #ccc;
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+/* Adding a tiny bullet point to log items */
+.log-container li::before {
+    content: "•";
+    color: var(--wood-light);
+    font-weight: bold;
+    display: inline-block; 
+    width: 1em;
+    margin-left: -1em;
+}
+
+/* Family list styling */
+#children-list li {
+    background-color: var(--parchment-light);
+    margin-bottom: 5px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-left: 4px solid var(--wood-light);
+    border-radius: 4px;
+}
