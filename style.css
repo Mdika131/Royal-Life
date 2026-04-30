@@ -36,16 +36,16 @@ body {
     border-radius: 8px;
     padding: 30px;
     width: 100%;
-    max-width: 600px;
     box-shadow: 0 15px 40px rgba(0,0,0,0.8);
     position: relative;
 }
 
 .game-container-full {
     display: grid;
-    grid-template-columns: 350px 1fr;
+    grid-template-columns: 350px minmax(0, 1fr); /* minmax(0...) is the key fix for width jumping */
     gap: 30px;
     align-items: start;
+    width: 100%;
 }
 
 .sidebar {
@@ -64,8 +64,13 @@ body {
 .main-content {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 15px;
     height: calc(100vh - 120px);
+    min-height: 600px;
+    width: 100%;
+    min-width: 0; 
+    flex: 1;
+    overflow: hidden; /* prevents content from pushing the box wider */
 }
 
 /* --- Typography --- */
@@ -238,7 +243,9 @@ button:active {
     box-shadow: 0 15px 40px rgba(0,0,0,0.8);
     display: flex;
     flex-direction: column;
-    flex: 1; /* stretches equally */
+    flex: 1;
+    min-width: 0;
+    overflow-x: hidden;
 }
 
 .panel h3 {
@@ -260,7 +267,7 @@ button:active {
 
 #event-log, #children-list {
     flex-grow: 1;
-    overflow-y: auto;
+    overflow-y: visible; 
     padding-right: 10px;
 }
 
@@ -320,3 +327,74 @@ li {
     align-content: start;
 }
 
+/* -- Tab Navigation -- */
+.tab-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    background: var(--wood-dark);
+    padding: 8px;
+    border-radius: 8px;
+    border: 2px solid var(--gold);
+    width: 100%;
+    min-width: 0;
+}
+
+/* Individual tab buttons */
+.tab-btn {
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    gap: 8px; 
+    flex: 1;
+    height: 65px; 
+    padding: 10px !important;
+    font-size: 0.85em !important;
+    margin-bottom: 0 !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    opacity: 0.7;
+    white-space: nowrap; 
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+/* Highlight the active tab */
+.tab-btn.active {
+    background: var(--gold) !important;
+    color: var(--wood-dark) !important;
+    opacity: 1;
+    border: 1px solid var(--parchment-light) !important;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: 100%;
+}
+
+.tab-btn:hover {
+    opacity: 1;
+    background: rgba(212, 175, 55, 0.2) !important;
+}
+
+/* Hide tabs that aren't active */
+.tab-content {
+    display: none;
+    height: 100%;
+    width: 100%;
+    min-width: 0; 
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-content.active .panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto; 
+    overflow-x: hidden; 
+    scrollbar-gutter: stable;
+}

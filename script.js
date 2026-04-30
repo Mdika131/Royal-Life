@@ -7,8 +7,13 @@ let gameState = {
     gold: 100,
     population: 500,
     prestige: 50,
-    food: 100,
-    children: []
+    food: 1000,
+    children: [],
+    buildings: {
+        market: 0,
+        granary: 0,
+        clinic: 0
+    },
 };
 
 // Connect to HTML
@@ -22,7 +27,8 @@ const ui = {
     prestige: document.getElementById("prestige"),
     food: document.getElementById("food"),
     log: document.getElementById("event-log"),
-    childrenList: document.getElementById("children-list")
+    childrenList: document.getElementById("children-list"),
+    buildingsList: document.getElementById("buildings-list")
 };
 
 // Save and Load System
@@ -31,16 +37,20 @@ function saveGame() {
     localStorage.setItem("royalSave", JSON.stringify(gameState));
 }
 
+// Save and Load System
 function loadGame() {
     const savedData = localStorage.getItem("royalSave");
     if (savedData) {
         gameState = JSON.parse(savedData); 
         
-        // patch old saves so they don't break
-        if (!gameState.children) gameState.children = [];
-        if (!gameState.kingdomName) gameState.kingdomName = "Camelot";
-        if (!gameState.prestige) gameState.prestige = 50;
-        if (!gameState.food) gameState.food = 100;
+        // strictly check for undefined so a value of 0 doesn't trigger a false reset
+        if (gameState.children === undefined) gameState.children = [];
+        if (gameState.kingdomName === undefined) gameState.kingdomName = "Camelot";
+        if (gameState.prestige === undefined) gameState.prestige = 50;
+        if (gameState.food === undefined) gameState.food = 1000;
+        if (gameState.buildings === undefined) {
+            gameState.buildings = { market: 0, granary: 0, clinic: 0 };
+        }
         
         updateUI();
     } else {
@@ -74,6 +84,9 @@ function updateUI() {
     } else {
         console.log("Missing #children-list in HTML!");
     }
+    
+    // render the building shop
+    renderBuildings();
 }
 
 // The Core Game Loop
@@ -81,20 +94,28 @@ function ageOneYear() {
     gameState.age++;
     gameState.children.forEach(kid => kid.age++);
 
+    const buildingGold = gameState.buildings.market * buildingData.market.goldBonus;
+    const buildingFood = gameState.buildings.granary * buildingData.granary.foodBonus;
+    const buildingHealth = gameState.buildings.clinic * buildingData.clinic.healthBonus;
+
     // 1. Economy: Taxes & Upkeep
     const taxesCollected = Math.floor(gameState.population / 10); 
     const upkeepCost = 25; 
-    const netProfit = taxesCollected - upkeepCost;
+    const netProfit = (taxesCollected + buildingGold) - upkeepCost;
     gameState.gold += netProfit;
+
 
     // 2. Agriculture: Food & Starvation
     // random harvest quality multiplier (between 0.5 drought and 1.5 bumper crop)
     const harvestQuality = Math.random() + 0.5; 
     const foodProduced = Math.floor(gameState.population * harvestQuality);
-    const foodConsumed = gameState.population; // 1 food per person
-    const netFood = foodProduced - foodConsumed;
+    const foodConsumed = gameState.population; 
+    const netFood = (foodProduced + buildingFood) - foodConsumed;
     
     gameState.food += netFood;
+
+    // apply passive health bonus
+    gameState.health += buildingHealth;
 
     let starved = 0;
     if (gameState.food < 0) {
@@ -165,6 +186,7 @@ function ageOneYear() {
         saveGame();
         updateUI();
         checkDeath();
+
     });
 }
 
@@ -278,14 +300,19 @@ function startNewDynasty() {
         }).then((kingdomResult) => {
             const newKingdom = kingdomResult.value || "The Unknown Lands";
 
-            // Set up our brand new game stats
+            // explicitly reset EVERY stat so nothing carries over from a previous life
             gameState.rulerName = newRuler;
             gameState.kingdomName = newKingdom;
             gameState.age = 20;
             gameState.health = 100;
             gameState.gold = 100;
             gameState.population = 500;
+            gameState.prestige = 50; 
+            gameState.food = 1000; 
             gameState.children = [];
+            
+            // wipe the infrastructure slate clean
+            gameState.buildings = { market: 0, granary: 0, clinic: 0 };
 
             // Wipe the old log and start fresh
             if (ui.log) ui.log.innerHTML = "";
@@ -295,6 +322,52 @@ function startNewDynasty() {
             updateUI();
         });
     });
+}
+
+// draw the building shop interface
+function renderBuildings() {
+    if (!ui.buildingsList) return;
+    ui.buildingsList.innerHTML = "";
+
+    for (const key in buildingData) {
+        const b = buildingData[key];
+        const owned = gameState.buildings[key] || 0;
+        
+        // each building costs 15% more than the last one
+        const currentCost = Math.floor(b.baseCost * Math.pow(1.15, owned));
+
+        const li = document.createElement("li");
+        li.innerHTML = `
+            <div style="font-size: 1.8em; margin-bottom: 8px; color: var(--wood-dark);"><i class="fas ${b.icon}"></i></div>
+            <div style="font-size: 1.1em; margin-bottom: 5px;"><b>${b.name}</b></div>
+            <div style="font-size: 0.9em; color: #555; margin-bottom: 5px;">Owned: ${owned}</div>
+            <div style="font-size: 0.8em; margin-bottom: 12px;"><i>${b.desc}</i></div>
+            <button onclick="buyBuilding('${key}', ${currentCost})" style="padding: 8px; font-size: 0.9em; width: 100%;" ${gameState.gold < currentCost ? 'disabled' : ''}>
+                Buy (${currentCost} 🪙)
+            </button>
+        `;
+        ui.buildingsList.appendChild(li);
+    }
+}
+
+// process the building purchase
+function buyBuilding(buildingKey, cost) {
+    if (gameState.gold >= cost) {
+        gameState.gold -= cost;
+        gameState.buildings[buildingKey]++;
+        
+        saveGame();
+        updateUI();
+        
+        Swal.fire({
+            title: 'Construction Complete',
+            text: `You have successfully built a new ${buildingData[buildingKey].name}!`,
+            icon: 'success',
+            confirmButtonColor: '#27ae60',
+            background: '#f4e8c1',
+            color: '#333'
+        });
+    }
 }
 
 function addLogEntry(message) {
@@ -315,3 +388,19 @@ document.getElementById("child-btn").addEventListener("click", haveChild);
 
 // Load the game when the page opens
 window.onload = loadGame;
+
+// Handles switching between the different menu tabs
+function switchTab(tabId) {
+    // remove active class from all tabs and buttons
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+    // show the selected tab
+    document.getElementById(tabId).classList.add('active');
+    
+    // highlight the clicked button
+    const clickedBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => 
+        btn.getAttribute('onclick').includes(tabId)
+    );
+    if (clickedBtn) clickedBtn.classList.add('active');
+}

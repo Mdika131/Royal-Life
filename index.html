@@ -47,16 +47,51 @@
 
             <!-- right column: dynamic expanding panels for story and family -->
             <main class="main-content">
-                <div class="panel family-panel">
-                    <h3><i class="fas fa-crown"></i> Lineage</h3>
-                    <ul id="children-list" class="grid-list"></ul>
+
+                <!-- Navigation for different kingdom management areas -->
+                <nav class="tab-bar">
+                    <button class="tab-btn active" onclick="switchTab('game-tab')"><i class="fas fa-scroll"></i> Chronicles</button>
+                    <button class="tab-btn" onclick="switchTab('family-tab')"><i class="fas fa-users"></i> Lineage</button>
+                    <button class="tab-btn" onclick="switchTab('buildings-tab')"><i class="fas fa-hammer"></i> Buildings</button>
+                    <button class="tab-btn" onclick="switchTab('stats-tab')"><i class="fas fa-chart-line"></i> Archives</button>
+                    <button class="tab-btn" onclick="switchTab('settings-tab')"><i class="fas fa-cog"></i> Settings</button>
+                </nav>
+
+                <!-- Wrap your existing panels in these tab-content divs -->
+                <div id="game-tab" class="tab-content active">
+                    <div class="panel log-container">
+                        <h3><i class="fas fa-scroll"></i> Chronicles</h3>
+                        <ul id="event-log"></ul>
+                    </div>
                 </div>
 
-                <div class="panel log-container">
-                    <h3><i class="fas fa-scroll"></i> Chronicles</h3>
-                    <ul id="event-log">
-                        <li>Long live the King! Your reign begins.</li>
-                    </ul>
+                <div id="family-tab" class="tab-content">
+                    <div class="panel family-panel">
+                        <h3><i class="fas fa-crown"></i> Royal Lineage</h3>
+                        <ul id="children-list" class="grid-list"></ul>
+                    </div>
+                </div>
+
+                <!-- Placeholders for future expansion -->
+                <div id="buildings-tab" class="tab-content">
+                    <div class="panel">
+                        <h3><i class="fas fa-hammer"></i> Infrastructure</h3>
+                        <ul id="buildings-list" class="grid-list"></ul>
+                    </div>
+                </div>
+
+                <div id="stats-tab" class="tab-content">
+                    <div class="panel">
+                        <h3><i class="fas fa-chart-line"></i> Kingdom Archives</h3>
+                        <p>Detailed historical records and economic charts will appear here.</p>
+                    </div>
+                </div>
+
+                <div id="settings-tab" class="tab-content">
+                    <div class="panel">
+                        <h3><i class="fas fa-cog"></i> Settings</h3>
+                        <p>Configure your royal experience here.</p>
+                    </div>
                 </div>
             </main>
 
@@ -64,6 +99,8 @@
     </div>
 
     <script src="events.js"></script>
+    <script src="buildings.js"></script>
+
     <script src="script.js"></script>
 </body>
 </html>
