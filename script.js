@@ -8,7 +8,10 @@ let gameState = {
     population: 500,
     prestige: 50,
     food: 1000,
+    spouse: null,
+    pastRulers: [],
     children: [],
+    historicalOffspring: [],
     buildings: {
         market: 0,
         granary: 0,
@@ -28,8 +31,19 @@ const ui = {
     food: document.getElementById("food"),
     log: document.getElementById("event-log"),
     childrenList: document.getElementById("children-list"),
-    buildingsList: document.getElementById("buildings-list")
+    buildingsList: document.getElementById("buildings-list"),
+    spouseContainer: document.getElementById("spouse-container"),
+    dynastyTree: document.getElementById("dynasty-tree"),
 };
+
+// Traits Database for Ruler Creation
+const royalTraits = [
+    { name: "Strong", icon: "fa-dumbbell", color: "#27ae60", effect: "Starts with +20 Health", modHealth: 20, modGold: 0, modPrestige: 0 },
+    { name: "Genius", icon: "fa-brain", color: "#2980b9", effect: "Starts with +25 Prestige", modHealth: 0, modGold: 0, modPrestige: 25 },
+    { name: "Greedy", icon: "fa-coins", color: "#d35400", effect: "Starts with +50 Gold, -10 Prestige", modHealth: 0, modGold: 50, modPrestige: -10 },
+    { name: "Frail", icon: "fa-crutch", color: "#c0392b", effect: "Starts with -20 Health", modHealth: -20, modGold: 0, modPrestige: 0 },
+    { name: "Charismatic", icon: "fa-face-smile", color: "#8e44ad", effect: "Starts with +15 Prestige", modHealth: 0, modGold: 0, modPrestige: 15 }
+];
 
 // Save and Load System
 function saveGame() {
@@ -45,11 +59,17 @@ function loadGame() {
         
         // strictly check for undefined so a value of 0 doesn't trigger a false reset
         if (gameState.children === undefined) gameState.children = [];
+        if (gameState.historicalOffspring === undefined) gameState.historicalOffspring = [];
         if (gameState.kingdomName === undefined) gameState.kingdomName = "Camelot";
         if (gameState.prestige === undefined) gameState.prestige = 50;
         if (gameState.food === undefined) gameState.food = 1000;
-        if (gameState.buildings === undefined) {
-            gameState.buildings = { market: 0, granary: 0, clinic: 0 };
+        if (gameState.spouse === undefined) gameState.spouse = null;
+        if (gameState.pastRulers === undefined) gameState.pastRulers = [];
+        if (gameState.buildings === undefined) gameState.buildings = {};
+        for (const key in buildingData) {
+            if (gameState.buildings[key] === undefined) {
+                gameState.buildings[key] = 0;
+            }
         }
         
         updateUI();
@@ -75,10 +95,41 @@ function updateUI() {
         // clear out the old list
         ui.childrenList.innerHTML = ""; 
         
-        // loop through the array and render each kid
-        gameState.children.forEach(kid => {
+        // loop through the array and render each kid as a detailed UI card
+        gameState.children.forEach((kid, index) => {
+            const trait = kid.trait || royalTraits[0]; 
+            
+            // backwards compatibility for older saves that lack new gender properties
+            const isMale = kid.isMale !== undefined ? kid.isMale : true;
+            const baseTitle = kid.baseTitle || (isMale ? "Prince" : "Princess");
+            const heirTitle = kid.heirTitle || (isMale ? "Crown Prince" : "Crown Princess");
+            
+            // the child at index 0 is always next in line for the throne
+            const isHeir = index === 0; 
+            const displayTitle = isHeir ? heirTitle : baseTitle;
+
             const li = document.createElement("li");
-            li.innerText = `${kid.name} (Age: ${kid.age})`;
+            li.innerHTML = `
+                <div style="font-size: 0.8em; color: ${isHeir ? 'var(--gold)' : '#555'}; text-transform: uppercase; font-weight: bold;">
+                    ${isHeir ? `<i class="fas fa-crown"></i> ${displayTitle}` : displayTitle}
+                </div>
+                <div style="font-size: 1.2em; color: var(--wood-dark); margin-bottom: 5px;"><b>${kid.name}</b></div>
+                <div style="font-size: 0.9em; margin-bottom: 8px; color: #555;">
+                    Age: ${kid.age} &bull; <i>${kid.isSibling ? 'Sibling' : 'Child'}</i>
+                </div>
+                <div style="font-size: 0.85em; color: ${trait.color}; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 5px; margin-bottom: 12px;">
+                    <i class="fas ${trait.icon}"></i> <b>${trait.name}</b>
+                    <div style="font-size: 0.8em; color: #555; margin-top: 2px;">${trait.effect}</div>
+                </div>
+                <div style="display: flex; gap: 5px; border-top: 1px dashed var(--wood-light); padding-top: 10px;">
+                    <button onclick="setHeir(${index})" style="flex: 1; padding: 6px; font-size: 0.75em; background: ${isHeir ? '#ccc' : 'var(--wood-dark)'}; color: ${isHeir ? '#666' : 'white'}; border: none; border-radius: 3px; cursor: pointer;" ${isHeir ? 'disabled' : ''}>
+                        Make Heir
+                    </button>
+                    <button onclick="marryOff(${index})" style="flex: 1; padding: 6px; font-size: 0.75em; background: #8e44ad; color: white; border: none; border-radius: 3px; cursor: pointer;" ${isHeir ? 'disabled' : ''}>
+                        Marry Off
+                    </button>
+                </div>
+            `;
             ui.childrenList.appendChild(li);
         });
     } else {
@@ -87,44 +138,89 @@ function updateUI() {
     
     // render the building shop
     renderBuildings();
+
+    // render spouse panel
+    if (ui.spouseContainer) {
+        if (gameState.spouse) {
+            ui.spouseContainer.innerHTML = `<div style="font-size: 1.2em; color: var(--wood-dark);"><b>${gameState.spouse.name}</b></div><div style="font-size: 0.9em;">Age: ${gameState.spouse.age}</div>`;
+        } else {
+            ui.spouseContainer.innerHTML = `<button onclick="findSpouse()" style="padding: 10px 20px; font-size: 1em; background: #8e44ad; color: white; border: none; border-radius: 5px; cursor: pointer; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);"><i class="fas fa-ring"></i> Find Spouse (50 🪙)</button>`;
+        }
+    }
+
+    // render the chronological dynasty tree
+    if (ui.dynastyTree) {
+        ui.dynastyTree.innerHTML = "";
+        
+        // draw a connecting line down the left side to simulate a family tree timeline
+        gameState.pastRulers.forEach((ruler, index) => {
+            const li = document.createElement("li");
+            li.style.marginBottom = "15px";
+            li.style.borderLeft = "3px solid var(--gold)";
+            li.style.paddingLeft = "15px";
+            li.style.position = "relative";
+            
+            li.innerHTML = `
+                <div style="position: absolute; left: -8px; top: 0; width: 12px; height: 12px; background: var(--wood-dark); border-radius: 50%; border: 2px solid var(--gold);"></div>
+                <div style="font-size: 1.1em; color: var(--wood-dark);"><b>${index + 1}. King/Queen ${ruler.name}</b> <span style="font-size: 0.8em; color: #555;">(Ruled ${ruler.reignLength} yrs)</span></div>
+                <div style="font-size: 0.85em; color: #444; margin-top: 4px;"><i class="fas fa-ring" style="color: #8e44ad;"></i> Married: ${ruler.spouse}</div>
+                <div style="font-size: 0.85em; color: #444; margin-top: 2px;"><i class="fas fa-baby" style="color: #27ae60;"></i> Offspring: ${ruler.children}</div>
+            `;
+            ui.dynastyTree.appendChild(li);
+        });
+    }
 }
 
+// The Core Game Loop
 // The Core Game Loop
 function ageOneYear() {
     gameState.age++;
     gameState.children.forEach(kid => kid.age++);
+    if (gameState.spouse) gameState.spouse.age++;
 
-    const buildingGold = gameState.buildings.market * buildingData.market.goldBonus;
-    const buildingFood = gameState.buildings.granary * buildingData.granary.foodBonus;
-    const buildingHealth = gameState.buildings.clinic * buildingData.clinic.healthBonus;
+    // dynamically calculate all passive bonuses based on inventory
+    let buildingGold = 0;
+    let buildingFood = 0;
+    let buildingHealth = 0;
+    let buildingPrestige = 0;
+    let totalBuildingUpkeep = 0;
+
+    for (const key in gameState.buildings) {
+        const owned = gameState.buildings[key];
+        if (owned > 0 && buildingData[key]) {
+            buildingGold += owned * (buildingData[key].goldBonus || 0);
+            buildingFood += owned * (buildingData[key].foodBonus || 0);
+            buildingHealth += owned * (buildingData[key].healthBonus || 0);
+            buildingPrestige += owned * (buildingData[key].prestigeBonus || 0);
+            totalBuildingUpkeep += owned * (buildingData[key].upkeep || 0);
+        }
+    }
 
     // 1. Economy: Taxes & Upkeep
     const taxesCollected = Math.floor(gameState.population / 10); 
-    const upkeepCost = 25; 
-    const netProfit = (taxesCollected + buildingGold) - upkeepCost;
+    const baseUpkeepCost = 25; 
+    const totalUpkeep = baseUpkeepCost + totalBuildingUpkeep;
+    const netProfit = (taxesCollected + buildingGold) - totalUpkeep;
     gameState.gold += netProfit;
 
-
     // 2. Agriculture: Food & Starvation
-    // random harvest quality multiplier (between 0.5 drought and 1.5 bumper crop)
     const harvestQuality = Math.random() + 0.5; 
     const foodProduced = Math.floor(gameState.population * harvestQuality);
     const foodConsumed = gameState.population; 
     const netFood = (foodProduced + buildingFood) - foodConsumed;
     
     gameState.food += netFood;
-
-    // apply passive health bonus
     gameState.health += buildingHealth;
+    gameState.prestige += buildingPrestige;
 
+    // starvation logic
     let starved = 0;
     if (gameState.food < 0) {
-        // famine logic: 1 person dies per missing unit of food
         starved = Math.abs(gameState.food);
         gameState.population -= starved;
-        gameState.prestige -= 20; // peasants blame you for the famine
-        gameState.health -= 20; // stress takes a toll
-        gameState.food = 0; // cant have negative food in the granary
+        gameState.prestige -= 20; 
+        gameState.health -= 20; 
+        gameState.food = 0; 
     }
  
     // 3. Realism: Natural Death Check
@@ -139,17 +235,28 @@ function ageOneYear() {
     
     const randomEvent = events[Math.floor(Math.random() * events.length)];
 
-    // build the UI for the yearly report popup
+    // build the highly detailed UI for the yearly report
     let reportHtml = `
-        <div style="text-align: left; background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+        <div style="text-align: left; background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.9em;">
             <b>Taxes:</b> +${taxesCollected} 🪙<br>
-            <b>Upkeep:</b> -${upkeepCost} 🪙<br>
-            <b>Net Gold:</b> ${netProfit >= 0 ? '+' : ''}${netProfit} 🪙
+            ${buildingGold > 0 ? `<b style="color: #27ae60;">Infrastructure Income:</b> +${buildingGold} 🪙<br>` : ''}
+            <b>Castle Upkeep:</b> -${baseUpkeepCost} 🪙<br>
+            ${totalBuildingUpkeep > 0 ? `<b style="color: #c0392b;">Building Upkeep:</b> -${totalBuildingUpkeep} 🪙<br>` : ''}
+            <div style="border-top: 1px solid #ccc; margin-top: 5px; padding-top: 5px;">
+                <b>Net Gold:</b> ${netProfit >= 0 ? '+' : ''}${netProfit} 🪙
+            </div>
+
             <hr style="border: 1px solid #ddd; margin: 8px 0;">
+            
             <b>Harvest:</b> +${foodProduced} 🌾<br>
+            ${buildingFood > 0 ? `<b style="color: #27ae60;">Infrastructure Storage:</b> +${buildingFood} 🌾<br>` : ''}
             <b>Eaten:</b> -${foodConsumed} 🌾<br>
-            <b>Net Food:</b> ${netFood >= 0 ? '+' : ''}${netFood} 🌾
-            ${starved > 0 ? `<br><b style="color:#c0392b;">Famine! ${starved} people starved to death.</b>` : ''}
+            <div style="border-top: 1px solid #ccc; margin-top: 5px; padding-top: 5px;">
+                <b>Net Food:</b> ${netFood >= 0 ? '+' : ''}${netFood} 🌾
+            </div>
+            
+            ${buildingPrestige > 0 ? `<div style="margin-top: 8px; color: #d35400;"><b>Passive Prestige:</b> +${buildingPrestige} 🌟</div>` : ''}
+            ${starved > 0 ? `<br><b style="color:#c0392b; font-size: 1.1em;">Famine! ${starved} people starved to death.</b>` : ''}
         </div>
         <p style="margin-top: 15px;">${randomEvent.text}</p>
     `;
@@ -186,43 +293,152 @@ function ageOneYear() {
         saveGame();
         updateUI();
         checkDeath();
+    });
+}
 
+// handles finding a spouse to expand the royal family
+function findSpouse() {
+    if (gameState.gold < 50) {
+        Swal.fire({ title: 'Not Enough Gold', text: 'You need at least 50 gold to host a royal wedding.', icon: 'error', confirmButtonColor: '#8b2b2b', background: '#f4e8c1', color: '#333' });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Royal Wedding',
+        text: 'Enter the name of your new spouse:',
+        input: 'text',
+        inputPlaceholder: 'e.g. Guinevere, Eleanor, Philip',
+        showCancelButton: true,
+        confirmButtonText: 'Marry (50 🪙)',
+        confirmButtonColor: '#8e44ad',
+        background: '#f4e8c1',
+        color: '#333'
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            gameState.gold -= 50;
+            gameState.spouse = {
+                name: result.value,
+                age: gameState.age - Math.floor(Math.random() * 5) // roughly same age as ruler
+            };
+            
+            addLogEntry(`You have married ${gameState.spouse.name}. The realm celebrates!`);
+            saveGame();
+            updateUI();
+        }
     });
 }
 
 function haveChild() {
-    // trigger a popup asking for the baby's name
+    // roll for gender and genetics BEFORE asking for a name
+    const isMale = Math.random() > 0.5;
+    const baseTitle = isMale ? "Prince" : "Princess";
+    const heirTitle = isMale ? "Crown Prince" : "Crown Princess";
+    const randomTrait = royalTraits[Math.floor(Math.random() * royalTraits.length)];
+
+    const promptTitle = isMale ? 'A Son is Born!' : 'A Daughter is Born!';
+    const promptText = `Your wife has given birth to a healthy baby ${isMale ? 'boy' : 'girl'}. What shall you name your new ${baseTitle}?`;
+
     Swal.fire({
-        title: 'A Royal Birth!',
-        text: 'What shall you name your new heir?',
+        title: promptTitle,
+        text: promptText,
         input: 'text',
-        inputPlaceholder: 'e.g. William, Mary, Henry',
+        inputPlaceholder: isMale ? 'e.g. William, Henry, Arthur' : 'e.g. Mary, Elizabeth, Victoria',
         confirmButtonText: 'Name Child',
-        confirmButtonColor: '#27ae60', // Matches our primary button theme
+        confirmButtonColor: '#27ae60',
         background: '#f4e8c1',
         color: '#333',
-        allowOutsideClick: false // force them to type a name
+        allowOutsideClick: false
     }).then((result) => {
-        // Grab what they typed. If they leave it blank, give a funny default name.
         const babyName = result.value || "A Nameless Royal";
+        
+        if (gameState.children === undefined) gameState.children = [];
 
-        // safety check: ensure array exists before pushing
-        if (!gameState.children) {
-            gameState.children = [];
+        const newBaby = {
+            name: babyName,
+            isMale: isMale,
+            baseTitle: baseTitle,
+            heirTitle: heirTitle,
+            age: 0,
+            trait: randomTrait,
+            isSibling: false // this is a direct descendant
+        };
+
+        // primogeniture: direct children always jump ahead of siblings in the line of succession
+        const firstSiblingIndex = gameState.children.findIndex(kid => kid.isSibling);
+        
+        if (firstSiblingIndex !== -1) {
+            // insert the baby right before the first sibling
+            gameState.children.splice(firstSiblingIndex, 0, newBaby);
+        } else {
+            // no siblings exist, just add to the end of the line
+            gameState.children.push(newBaby);
+            gameState.historicalOffspring.push(babyName);
         }
 
-        // push the new baby into the children array
-        gameState.children.push({
-            name: babyName,
-            age: 0
-        });
-
-        addLogEntry(`A new heir, ${babyName}, was born!`);
+        addLogEntry(`${baseTitle} ${babyName} was born! They seem to be ${randomTrait.name}.`);
+        
         
         saveGame();
         updateUI();
     });
 }
+
+// designate a specific child to inherit the throne
+function setHeir(index) {
+    if (index === 0) return; // they are already the heir
+    
+    // remove the chosen child from their current spot and move them to the front of the array
+    const chosenOne = gameState.children.splice(index, 1)[0];
+    gameState.children.unshift(chosenOne);
+    
+    addLogEntry(`${chosenOne.title} ${chosenOne.name} has been officially designated as the Crown Heir.`);
+    
+    saveGame();
+    updateUI();
+}
+
+// marry off a spare child for political alliances and resources
+function marryOff(index) {
+    // safety check so you don't accidentally game-over yourself
+    if (gameState.children.length <= 1 || index === 0) {
+        Swal.fire({
+            title: 'Cannot Marry Off!',
+            text: 'You cannot marry off your designated Crown Heir! The lineage must survive.',
+            icon: 'warning',
+            confirmButtonColor: '#8b5a2b',
+            background: '#f4e8c1',
+            color: '#333'
+        });
+        return;
+    }
+
+    const kid = gameState.children[index];
+    
+    // generate random dowry and alliance prestige
+    const goldGained = Math.floor(Math.random() * 100) + 50;
+    const prestigeGained = Math.floor(Math.random() * 20) + 10;
+    
+    Swal.fire({
+        title: 'Royal Marriage',
+        text: `You have married off ${kid.baseTitle} ${kid.name} to a neighboring realm. The alliance brings +${goldGained} 🪙 and +${prestigeGained} 🌟.`,
+        icon: 'success',
+        confirmButtonColor: '#8e44ad',
+        background: '#f4e8c1',
+        color: '#333'
+    }).then(() => {
+        // permanently remove the child from the kingdom
+        gameState.children.splice(index, 1);
+        
+        gameState.gold += goldGained;
+        gameState.prestige += prestigeGained;
+        
+        addLogEntry(`${kid.name} was married off for an alliance (+${goldGained} Gold, +${prestigeGained} Prestige).`);
+        
+        saveGame();
+        updateUI();
+    });
+}
+
 function checkDeath(reason = "poor health") {
     if (gameState.health <= 0) {
         // use the reason in the text
@@ -235,6 +451,7 @@ function checkDeath(reason = "poor health") {
             
             // shift removes the first item from the array and returns it to us
             const heir = gameState.children.shift(); 
+            gameState.children.forEach(kid => kid.isSibling = true);
             
             Swal.fire({
                 title: 'The Ruler is Dead!',
@@ -245,12 +462,33 @@ function checkDeath(reason = "poor health") {
                 background: '#f4e8c1',
                 color: '#333'
             }).then(() => {
+                // snapshot using the historical tracker so married-off kids are remembered
+                // and leftover siblings from the previous generation are safely excluded
+                gameState.pastRulers.push({
+                    name: gameState.rulerName,
+                    spouse: gameState.spouse ? gameState.spouse.name : "Unmarried",
+                    reignLength: gameState.age - 20, 
+                    children: gameState.historicalOffspring.length > 0 ? gameState.historicalOffspring.join(", ") : "None"
+                });
+
+                // clear the spouse and offspring records for the new young ruler
+                gameState.spouse = null;
+                gameState.historicalOffspring = [];
+                
                 // swap the stats over to the kid
                 gameState.rulerName = heir.name;
                 gameState.age = heir.age;
-                gameState.health = 100;
                 
-                addLogEntry(`${heir.name} has ascended to the throne.`);
+                // apply inherited trait modifiers to starting baseline
+                const heirTrait = heir.trait || royalTraits[0];
+                gameState.health = 100 + heirTrait.modHealth;
+                gameState.gold += heirTrait.modGold;
+                gameState.prestige += heirTrait.modPrestige;
+                
+                // safety bounds
+                if (gameState.health > 100) gameState.health = 100;
+                
+                addLogEntry(`${heir.title} ${heir.name} the ${heirTrait.name} has ascended to the throne.`);
                 saveGame();
                 updateUI();
             });
@@ -310,9 +548,15 @@ function startNewDynasty() {
             gameState.prestige = 50; 
             gameState.food = 1000; 
             gameState.children = [];
+            gameState.spouse = null;
+            gameState.pastRulers = [];
+            gameState.historicalOffspring = [];
             
             // wipe the infrastructure slate clean
-            gameState.buildings = { market: 0, granary: 0, clinic: 0 };
+            gameState.buildings = {};
+            for (const key in buildingData) {
+                gameState.buildings[key] = 0;
+            }
 
             // Wipe the old log and start fresh
             if (ui.log) ui.log.innerHTML = "";
@@ -341,7 +585,10 @@ function renderBuildings() {
             <div style="font-size: 1.8em; margin-bottom: 8px; color: var(--wood-dark);"><i class="fas ${b.icon}"></i></div>
             <div style="font-size: 1.1em; margin-bottom: 5px;"><b>${b.name}</b></div>
             <div style="font-size: 0.9em; color: #555; margin-bottom: 5px;">Owned: ${owned}</div>
-            <div style="font-size: 0.8em; margin-bottom: 12px;"><i>${b.desc}</i></div>
+            <div style="font-size: 0.8em; margin-bottom: 12px;">
+                <i>${b.desc}</i><br>
+                <span style="color: #c0392b; font-weight: bold;">Upkeep: -${b.upkeep} 🪙/yr</span>
+            </div>
             <button onclick="buyBuilding('${key}', ${currentCost})" style="padding: 8px; font-size: 0.9em; width: 100%;" ${gameState.gold < currentCost ? 'disabled' : ''}>
                 Buy (${currentCost} 🪙)
             </button>

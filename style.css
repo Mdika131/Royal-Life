@@ -66,11 +66,12 @@ body {
     flex-direction: column;
     gap: 15px;
     height: calc(100vh - 120px);
+    max-height: calc(100vh - 120px); 
     min-height: 600px;
     width: 100%;
     min-width: 0; 
     flex: 1;
-    overflow: hidden; /* prevents content from pushing the box wider */
+    overflow: hidden; 
 }
 
 /* --- Typography --- */
@@ -387,6 +388,9 @@ li {
 .tab-content.active {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    height: 100%;
+    min-height: 0; 
 }
 
 .tab-content.active .panel {
@@ -397,4 +401,16 @@ li {
     overflow-y: auto; 
     overflow-x: hidden; 
     scrollbar-gutter: stable;
+}
+
+.tab-content.active .panel::-webkit-scrollbar {
+    width: 8px;
+}
+.tab-content.active .panel::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+    border-radius: 4px;
+}
+.tab-content.active .panel::-webkit-scrollbar-thumb {
+    background: var(--wood-light); 
+    border-radius: 4px;
 }

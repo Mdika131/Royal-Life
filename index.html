@@ -66,10 +66,24 @@
                 </div>
 
                 <div id="family-tab" class="tab-content">
-                    <div class="panel family-panel">
-                        <h3><i class="fas fa-crown"></i> Royal Lineage</h3>
+            
+                    <div class="panel family-panel" style="margin-bottom: 20px;">
+                        <h3><i class="fas fa-ring"></i> Royal Consort</h3>
+                        <div id="spouse-container" style="text-align: center; padding: 15px; background: var(--parchment-dark); border-radius: 6px; border: 1px solid var(--wood-light);">
+                            <!-- js injects spouse data or the marriage button here -->
+                        </div>
+                    </div>
+
+                    <div class="panel family-panel" style="margin-bottom: 20px;">
+                        <h3><i class="fas fa-crown"></i> Current Lineage</h3>
                         <ul id="children-list" class="grid-list"></ul>
                     </div>
+
+                    <div class="panel family-panel">
+                        <h3><i class="fas fa-tree"></i> Dynasty Tree</h3>
+                        <ul id="dynasty-tree" style="padding-left: 10px; font-size: 0.9em; list-style-type: none;"></ul>
+                    </div>
+
                 </div>
 
                 <!-- Placeholders for future expansion -->
