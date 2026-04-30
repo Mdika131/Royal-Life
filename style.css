@@ -18,12 +18,10 @@
 body {
     font-family: 'Lora', serif;
     background-color: var(--bg-dark);
-    /* Creates a subtle dark wood/tavern background feel */
     background-image: radial-gradient(circle at center, #2a2a2a 0%, #111 100%);
     color: var(--text-main);
     display: flex;
     justify-content: center;
-    align-items: center;
     min-height: 100vh;
     margin: 0;
     padding: 20px;
@@ -43,6 +41,33 @@ body {
     position: relative;
 }
 
+.game-container-full {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 30px;
+    align-items: start;
+}
+
+.sidebar {
+    background-color: var(--parchment-light);
+    border: 3px solid var(--gold);
+    outline: 8px solid var(--wood-dark);
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    position: sticky;
+    top: 20px;
+    max-width: 350px;
+    overflow-x: hidden;
+}
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    height: calc(100vh - 120px);
+}
+
 /* --- Typography --- */
 h1, h2, h3 {
     font-family: 'Cinzel', serif;
@@ -52,11 +77,14 @@ h1, h2, h3 {
 }
 
 .game-title {
-    font-size: 2.2em;
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 3em;
+    text-align: center;
+    margin: 0;
     border-bottom: 2px solid var(--wood-light);
     padding-bottom: 15px;
-    margin-bottom: 20px;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.6);
 }
 
 /* --- Ruler Banner --- */
@@ -89,24 +117,20 @@ h1, h2, h3 {
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    margin-bottom: 30px;
+    gap: 10px; /* reduced gap */
+    margin-bottom: 25px;
+    width: 100%; /* force containment */
 }
 
 .stat-box {
     background-color: var(--parchment-dark);
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 12px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 8px; /* less padding to save space */
     display: flex;
     align-items: center;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
-}
-
-.stat-icon {
-    font-size: 1.8em;
-    margin-right: 15px;
-    color: var(--wood-light);
+    overflow: hidden; /* stop text from leaking out */
+    min-width: 0; /* allows the box to shrink if needed */
 }
 
 /* Custom Icon Colors */
@@ -114,23 +138,32 @@ h1, h2, h3 {
 .text-gold { color: #d35400; } /* Slightly darker gold for contrast */
 .text-blue { color: #2980b9; }
 
+.stat-icon {
+    font-size: 1.4em; 
+    margin-right: 8px;
+    flex-shrink: 0; /* icon won't squish */
+}
+
 .stat-details {
     display: flex;
     flex-direction: column;
+    min-width: 0; /* lets text truncate if the box is too small */
 }
 
 .stat-label {
-    font-size: 0.85em;
+    font-size: 0.75em;
     text-transform: uppercase;
-    font-weight: bold;
-    color: #666;
+    color: #555;
+    white-space: nowrap;
 }
 
 .stat-value {
-    font-size: 1.3em;
+    font-size: 1.1em;
     font-family: 'Cinzel', serif;
-    font-weight: bold;
     color: var(--wood-dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* adds ... if a name is too long */
 }
 
 /* --- Buttons --- */
@@ -197,24 +230,38 @@ button:active {
 }
 
 .panel {
-    background-color: white;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    padding: 15px;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+    background-color: var(--parchment-light);
+    border: 3px solid var(--gold);
+    outline: 8px solid var(--wood-dark);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* stretches equally */
 }
 
 .panel h3 {
-    font-size: 1.2em;
-    border-bottom: 1px solid var(--gold);
-    padding-bottom: 5px;
-    margin-bottom: 10px;
+    font-family: 'Cinzel', serif;
+    font-size: 1.5em;
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--wood-dark);
 }
 
 /* Event Log specifics */
 .log-container {
     height: 180px;
     overflow-y: auto;
+    flex: 2;
+}
+
+#event-log, #children-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 10px;
 }
 
 /* Custom beautiful scrollbar for the log */
@@ -255,10 +302,21 @@ li {
 
 /* Family list styling */
 #children-list li {
-    background-color: var(--parchment-light);
-    margin-bottom: 5px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-left: 4px solid var(--wood-light);
-    border-radius: 4px;
+    background-color: var(--parchment-dark);
+    margin-bottom: 0;
+    padding: 12px;
+    text-align: center;
+    font-weight: bold;
+    border: 1px solid var(--wood-light);
+    border-left: 4px solid var(--wood-dark);
+    border-radius: 6px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
 }
+
+#children-list.grid-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    align-content: start;
+}
+

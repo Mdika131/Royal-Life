@@ -15,87 +15,50 @@
 </head>
 <body>
 
-    <div class="game-container">
+    <div class="game-wrapper">
+        
         <h1 class="game-title"><i class="fas fa-chess-king"></i> The Throne Room</h1>
         
-        <div class="ruler-banner">
-            <h2>Ruler of <span id="kingdom-name">Camelot</span></h2>
-            <h3 class="ruler-name-display"><span id="ruler-name">King Arthur</span></h3>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-box">
-                <i class="fas fa-hourglass-half stat-icon"></i>
-                <div class="stat-details">
-                    <span class="stat-label">Age</span>
-                    <span class="stat-value" id="age">20</span>
-                </div>
-            </div>
+        <div class="game-container-full">
             
-            <div class="stat-box">
-                <i class="fas fa-heart stat-icon text-red"></i>
-                <div class="stat-details">
-                    <span class="stat-label">Health</span>
-                    <span class="stat-value"><span id="health">100</span>%</span>
+            <aside class="sidebar">
+                <div class="ruler-banner">
+                    <h2>Ruler of <span id="kingdom-name">Camelot</span></h2>
+                    <h3 class="ruler-name-display"><span id="ruler-name">King Arthur</span></h3>
                 </div>
-            </div>
 
-            <div class="stat-box">
-                <i class="fas fa-coins stat-icon text-gold"></i>
-                <div class="stat-details">
-                    <span class="stat-label">Treasury</span>
-                    <span class="stat-value" id="gold">100</span>
+                <div class="stats-grid">
+                    <div class="stat-box"><i class="fas fa-hourglass-half stat-icon"></i><div class="stat-details"><span class="stat-label">Age</span><span class="stat-value" id="age">20</span></div></div>
+                    <div class="stat-box"><i class="fas fa-heart stat-icon text-red"></i><div class="stat-details"><span class="stat-label">Health</span><span class="stat-value"><span id="health">100</span>%</span></div></div>
+                    <div class="stat-box"><i class="fas fa-coins stat-icon text-gold"></i><div class="stat-details"><span class="stat-label">Treasury</span><span class="stat-value" id="gold">100</span></div></div>
+                    <div class="stat-box"><i class="fas fa-users stat-icon text-blue"></i><div class="stat-details"><span class="stat-label">Population</span><span class="stat-value" id="population">500</span></div></div>
+                    <div class="stat-box"><i class="fas fa-wheat-awn stat-icon text-gold"></i><div class="stat-details"><span class="stat-label">Food</span><span class="stat-value" id="food">1000</span></div></div>
+                    <div class="stat-box"><i class="fas fa-star stat-icon text-gold"></i><div class="stat-details"><span class="stat-label">Prestige</span><span class="stat-value" id="prestige">50</span></div></div>
                 </div>
-            </div>
 
-            <div class="stat-box">
-                <i class="fas fa-star stat-icon text-gold"></i>
-                <div class="stat-details">
-                    <span class="stat-label">Prestige</span>
-                    <span class="stat-value" id="prestige">50</span>
+                <div class="button-group">
+                    <button id="age-btn" class="primary-btn"><i class="fas fa-forward"></i> Age 1 Year</button>
+                    <div class="secondary-actions">
+                        <button id="child-btn" class="action-btn"><i class="fas fa-baby"></i> Have Heir</button>
+                        <button id="reset-btn" class="danger-btn"><i class="fas fa-skull"></i> Abdicate</button>
+                    </div>
                 </div>
-            </div>
+            </aside>
 
-            <div class="stat-box">
-                <i class="fas fa-users stat-icon text-blue"></i>
-                <div class="stat-details">
-                    <span class="stat-label">Population</span>
-                    <span class="stat-value" id="population">500</span>
+            <!-- right column: dynamic expanding panels for story and family -->
+            <main class="main-content">
+                <div class="panel family-panel">
+                    <h3><i class="fas fa-crown"></i> Lineage</h3>
+                    <ul id="children-list" class="grid-list"></ul>
                 </div>
-            </div>
 
-            <div class="stat-box">
-                <i class="fas fa-wheat-awn stat-icon text-gold"></i>
-                <div class="stat-details">
-                    <span class="stat-label">Food</span>
-                    <span class="stat-value" id="food">1000</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="button-group">
-            <button id="age-btn" class="primary-btn"><i class="fas fa-forward"></i> Age 1 Year</button>
-            
-            <div class="secondary-actions">
-                <button id="child-btn" class="action-btn"><i class="fas fa-baby"></i> Have Heir</button>
-                <button id="reset-btn" class="danger-btn"><i class="fas fa-skull"></i> Abdicate</button>
-            </div>
-        </div>
-
-        <div class="info-panels">
-            
-            <div class="panel family-panel">
-                <h3><i class="fas fa-crown"></i> Lineage</h3>
-                <ul id="children-list">
+                <div class="panel log-container">
+                    <h3><i class="fas fa-scroll"></i> Chronicles</h3>
+                    <ul id="event-log">
+                        <li>Long live the King! Your reign begins.</li>
                     </ul>
-            </div>
-
-            <div class="panel log-container">
-                <h3><i class="fas fa-scroll"></i> Chronicles</h3>
-                <ul id="event-log">
-                    <li>Long live the King! Your reign begins.</li>
-                </ul>
-            </div>
+                </div>
+            </main>
 
         </div>
     </div>
