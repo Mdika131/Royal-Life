@@ -4,9 +4,10 @@ const events = [
     { 
         title: "Peasant Revolt!", 
         text: "The peasants are angry about the recent taxes and are marching on the castle.",
+        condition: (state) => state.prestige < 30 && state.population > 200,
         choices: [
-            { text: "Lower Taxes", goldChange: -30, popChange: 20, healthChange: 0, prestigeChange: 15 },
-            { text: "Send the Guards", goldChange: 20, popChange: -40, healthChange: -10, prestigeChange: -20 }
+            { text: "Lower Taxes", goldChange: -30, popChange: 20, healthChange: 0, prestigeChange: 15, armyChange: 0 },
+            { text: "Send the Guards", goldChange: 20, popChange: -40, healthChange: -10, prestigeChange: -20, armyChange: -10 }
         ]
     },
     { 
@@ -28,9 +29,10 @@ const events = [
     { 
         title: "Bumper Crop", 
         text: "The harvest was massive this year. What shall we do with the surplus?",
+        condition: (state) => state.buildings.granary > 0,
         choices: [
-            { text: "Sell it for Gold", goldChange: 50, popChange: 0, healthChange: 0, prestigeChange: -5 },
-            { text: "Feed the Poor", goldChange: 0, popChange: 50, healthChange: 5, prestigeChange: 20 }
+            { text: "Sell it for Gold", goldChange: 50, popChange: 0, healthChange: 0, prestigeChange: -5, armyChange: 0 },
+            { text: "Feed the Poor", goldChange: 0, popChange: 50, healthChange: 5, prestigeChange: 20, armyChange: 0 }
         ]
     },
     {
@@ -44,9 +46,10 @@ const events = [
     {
         title: "Bandit Raids",
         text: "Bandits are pillaging villages near the border.",
+        condition: (state) => state.gold > 100 && state.army < 20,
         choices: [
-            { text: "Send Army", goldChange: -25, popChange: 10, healthChange: 5, prestigeChange: 10 },
-            { text: "Ignore Them", goldChange: 0, popChange: -30, healthChange: -10, prestigeChange: -20 }
+            { text: "Send Army", goldChange: -10, popChange: 0, healthChange: 0, prestigeChange: 15, armyChange: -10 },
+            { text: "Ignore Them", goldChange: 0, popChange: -30, healthChange: -10, prestigeChange: -20, armyChange: 0 }
         ]
     },
     {
@@ -167,6 +170,73 @@ const events = [
         choices: [
             { text: "Hear Them", goldChange: -10, popChange: 15, healthChange: 5, prestigeChange: 5 },
             { text: "Exile Them", goldChange: 0, popChange: -15, healthChange: -5, prestigeChange: -10 }
+        ]
+    },
+    {
+        title: "Dynastic Insult",
+        text: "A rival lord from a minor house has publicly mocked the history of House {house}.",
+        choices: [
+            { text: "Demand Apology", goldChange: 0, popChange: 0, healthChange: 0, prestigeChange: 20 },
+            { text: "Ignore the Fool", goldChange: 0, popChange: 0, healthChange: 0, prestigeChange: -15 }
+        ]
+    },
+    {
+        title: "The Consort's Project",
+        text: "{spouse} wishes to fund a new garden in the palace to improve the family's image.",
+        condition: (state) => state.spouse !== null,
+        choices: [
+            { text: "Grant Funds", goldChange: -40, popChange: 0, healthChange: 5, prestigeChange: 25, armyChange: 0 },
+            { text: "Deny Request", goldChange: 0, popChange: 0, healthChange: 0, prestigeChange: -10, armyChange: 0 }
+        ]
+    },
+    {
+        title: "A Sibling's Jealousy",
+        text: "One of the younger siblings is spreading rumors that {heir} is unfit for the throne.",
+        choices: [
+            { text: "Publicly Rebuke", goldChange: 0, popChange: 0, healthChange: 0, prestigeChange: 10 },
+            { text: "Exile Sibling", goldChange: -10, popChange: -5, healthChange: 0, prestigeChange: -20 }
+        ]
+    },
+    {
+        title: "Coronation Anniversary",
+        text: "It is the anniversary of your rise as {title}. The people of {house} expect a celebration.",
+        choices: [
+            { text: "Host Grand Feast", goldChange: -50, popChange: 30, healthChange: 5, prestigeChange: 40 },
+            { text: "Quiet Ceremony", goldChange: -5, popChange: 0, healthChange: 0, prestigeChange: 5 }
+        ]
+    },
+    {
+        title: "Royal Scandal",
+        text: "Rumors are swirling about {spouse}'s secret meetings with a foreign diplomat.",
+        choices: [
+            { text: "Investigate Quietly", goldChange: -15, popChange: 0, healthChange: -5, prestigeChange: 0 },
+            { text: "Silence the Rumors", goldChange: -30, popChange: 0, healthChange: 0, prestigeChange: -10 }
+        ]
+    },
+    {
+        title: "Heir's Debut",
+        text: "{heir} has reached an age where they must be presented to the high nobility.",
+        choices: [
+            { text: "Lavish Debut", goldChange: -45, popChange: 0, healthChange: 0, prestigeChange: 35 },
+            { text: "Modest Affair", goldChange: -10, popChange: 0, healthChange: 0, prestigeChange: 10 }
+        ]
+    },
+    {
+        title: "Heir's Education",
+        text: "It is time to hire a tutor for the royal children. A prestigious philosopher is available.",
+        condition: (state) => state.children && state.children.length > 0,
+        choices: [
+            { text: "Top Education", goldChange: -20, popChange: 0, healthChange: 0, prestigeChange: 20, armyChange: 0 },
+            { text: "Home Schooling", goldChange: 0, popChange: 0, healthChange: 0, prestigeChange: -5, armyChange: 0 }
+        ]
+    },
+    {
+        title: "A Quiet Year",
+        text: "The year passes without any major incidents. The realm is at peace.",
+        condition: (state) => true,
+        choices: [
+            { text: "Praise the Gods", goldChange: 0, popChange: 10, healthChange: 5, prestigeChange: 5, armyChange: 0 },
+            { text: "Host a Small Feast", goldChange: -10, popChange: 0, healthChange: 10, prestigeChange: 10, armyChange: 0 }
         ]
     }
 ];

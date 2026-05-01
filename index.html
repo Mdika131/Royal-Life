@@ -23,7 +23,7 @@
             
             <aside class="sidebar">
                 <div class="ruler-banner">
-                    <h2>Ruler of <span id="kingdom-name">Camelot</span></h2>
+                    <h2><span id="ruler-title">Ruler</span> of <span id="kingdom-name">Camelot</span></h2>
                     <h3 class="ruler-name-display"><span id="ruler-name">King Arthur</span></h3>
                 </div>
 
@@ -53,6 +53,7 @@
                     <button class="tab-btn active" onclick="switchTab('game-tab')"><i class="fas fa-scroll"></i> Chronicles</button>
                     <button class="tab-btn" onclick="switchTab('family-tab')"><i class="fas fa-users"></i> Lineage</button>
                     <button class="tab-btn" onclick="switchTab('buildings-tab')"><i class="fas fa-hammer"></i> Buildings</button>
+                    <button class="tab-btn" onclick="switchTab('military-tab')"><i class="fab fa-fort-awesome   "></i> Military</button>
                     <button class="tab-btn" onclick="switchTab('stats-tab')"><i class="fas fa-chart-line"></i> Archives</button>
                     <button class="tab-btn" onclick="switchTab('settings-tab')"><i class="fas fa-cog"></i> Settings</button>
                 </nav>
@@ -82,6 +83,61 @@
                     <div class="panel family-panel">
                         <h3><i class="fas fa-tree"></i> Dynasty Tree</h3>
                         <ul id="dynasty-tree" style="padding-left: 10px; font-size: 0.9em; list-style-type: none;"></ul>
+                    </div>
+
+                </div>
+
+                <div id="military-tab" class="tab-content">
+            
+                    <!-- The interactive realm map -->
+                    <div class="panel map-panel" style="margin-bottom: 20px;">
+                        <h3><i class="fas fa-map"></i> Regional Map</h3>
+                        
+                        <!-- A 10x10 CSS grid. JavaScript will inject the specific territory tiles in here -->
+                        <div id="ui-map-grid" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; background: var(--parchment-dark); padding: 8px; border-radius: 6px; border: 1px solid var(--wood-light);">
+                        </div>
+                        
+                        <div style="text-align: center; font-size: 0.85em; color: #555; margin-top: 10px;">
+                            <span style="color: #27ae60;"><i class="fas fa-square"></i> Crownlands</span> | 
+                            <span style="color: #2980b9;"><i class="fas fa-square"></i> Vassals</span> | 
+                            <span style="color: #c0392b;"><i class="fas fa-square"></i> Foreign</span>
+                        </div>
+                    </div>
+
+                    <div class="panel military-panel" style="margin-bottom: 20px;">
+                        <h3><i class="fas fa-shield-halved"></i> The Royal Army</h3>
+                        
+                        <!-- army stats readout -->
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                    
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--parchment-dark); border: 1px solid var(--wood-light); border-radius: 4px;">
+                            <div style="color: var(--wood-dark);"><i class="fas fa-shield" style="width: 20px;"></i> <b>Infantry</b></div>
+                            <div style="font-weight: bold; font-size: 1.1em;"><span id="ui-inf-count">0</span> / <span id="ui-inf-cap">50</span></div>
+                            <button onclick="recruitUnit('infantry')" style="padding: 6px 12px; background: #c0392b; color: white; border: none; border-radius: 3px; cursor: pointer;">Draft</button>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--parchment-dark); border: 1px solid var(--wood-light); border-radius: 4px;">
+                            <div style="color: var(--wood-dark);"><i class="fas fa-bullseye" style="width: 20px;"></i> <b>Archers</b></div>
+                            <div style="font-weight: bold; font-size: 1.1em;"><span id="ui-arc-count">0</span> / <span id="ui-arc-cap">0</span></div>
+                            <button onclick="recruitUnit('archers')" style="padding: 6px 12px; background: #c0392b; color: white; border: none; border-radius: 3px; cursor: pointer;">Draft</button>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--parchment-dark); border: 1px solid var(--wood-light); border-radius: 4px;">
+                            <div style="color: var(--wood-dark);"><i class="fas fa-horse" style="width: 20px;"></i> <b>Cavalry</b></div>
+                            <div style="font-weight: bold; font-size: 1.1em;"><span id="ui-cav-count">0</span> / <span id="ui-cav-cap">0</span></div>
+                            <button onclick="recruitUnit('cavalry')" style="padding: 6px 12px; background: #c0392b; color: white; border: none; border-radius: 3px; cursor: pointer;">Draft</button>
+                        </div>
+
+                    </div>
+
+                    </div>
+
+                    <!-- placeholder for the upcoming war system -->
+                    <div class="panel military-panel">
+                        <h3><i class="fas fa-map-location-dot"></i> Foreign Realms</h3>
+                        <div id="foreign-realms-container" style="text-align: center; padding: 20px; color: #666; font-style: italic; background: var(--parchment-dark); border-radius: 6px; border: 1px dashed #ccc;">
+                            Neighboring realms and war declarations will appear here.
+                        </div>
                     </div>
 
                 </div>

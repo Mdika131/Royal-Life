@@ -16,6 +16,14 @@ let gameState = {
     pastRulers: [],
     children: [],
     historicalOffspring: [],
+    landSize: 1,
+    neighbors: [],
+    mapTiles: [],
+    army: {
+        infantry: 0,
+        archers: 0,
+        cavalry: 0
+    },
     buildings: {
         market: 0,
         granary: 0,
@@ -25,8 +33,10 @@ let gameState = {
 
 // Connect to HTML
 const ui = {
+    mapGrid: document.getElementById("ui-map-grid"),
     kingdom: document.getElementById("kingdom-name"),
     name: document.getElementById("ruler-name"),
+    titleruler: document.getElementById("ruler-title"),
     age: document.getElementById("age"),
     health: document.getElementById("health"),
     gold: document.getElementById("gold"),
@@ -38,6 +48,13 @@ const ui = {
     buildingsList: document.getElementById("buildings-list"),
     spouseContainer: document.getElementById("spouse-container"),
     dynastyTree: document.getElementById("dynasty-tree"),
+    infCount: document.getElementById("ui-inf-count"),
+    infCap: document.getElementById("ui-inf-cap"),
+    arcCount: document.getElementById("ui-arc-count"),
+    arcCap: document.getElementById("ui-arc-cap"),
+    cavCount: document.getElementById("ui-cav-count"),
+    cavCap: document.getElementById("ui-cav-cap"),
+    foreignRealms: document.getElementById("foreign-realms-container"),
 };
 
 // Traits Database for Ruler Creation
@@ -73,6 +90,12 @@ function loadGame() {
         if (gameState.food === undefined) gameState.food = 1000;
         if (gameState.spouse === undefined) gameState.spouse = null;
         if (gameState.pastRulers === undefined) gameState.pastRulers = [];
+        if (gameState.landSize === undefined) gameState.landSize = 1;
+        if (gameState.neighbors === undefined) gameState.neighbors = [];
+        if (gameState.army === undefined || typeof gameState.army === 'number') {
+            const oldSoldiers = typeof gameState.army === 'number' ? gameState.army : 0;
+            gameState.army = { infantry: oldSoldiers, archers: 0, cavalry: 0 };
+        }
         if (gameState.buildings === undefined) gameState.buildings = {};
         for (const key in buildingData) {
             if (gameState.buildings[key] === undefined) {
@@ -81,6 +104,7 @@ function loadGame() {
         }
         
         updateUI();
+        
     } else {
         // no save found, start a new game
         startNewDynasty();
@@ -90,8 +114,9 @@ function loadGame() {
 function updateUI() {
     // update standard stats
     ui.name.innerHTML = `${gameState.rulerTitle} ${gameState.rulerName} <span style="font-size: 0.6em; display: block; color: var(--gold); margin-top: 4px;">House ${gameState.houseName}</span>`;
+    ui.titleruler.innerText = gameState.rulerTitle;
     ui.kingdom.innerText = gameState.kingdomName;
-    ui.name.innerText = gameState.rulerName;
+    ui.name.innerText = `${gameState.rulerName} ${gameState.houseName}`;
     ui.age.innerText = gameState.age;
     ui.health.innerText = gameState.health;
     ui.gold.innerText = gameState.gold;
@@ -178,6 +203,120 @@ function updateUI() {
             `;
             ui.dynastyTree.appendChild(li);
         });
+
+        if (ui.infCount) ui.infCount.innerText = gameState.army.infantry;
+        if (ui.infCap) ui.infCap.innerText = getUnitCapacity('infantry');
+        if (ui.arcCount) ui.arcCount.innerText = gameState.army.archers;
+        if (ui.arcCap) ui.arcCap.innerText = getUnitCapacity('archers');
+        if (ui.cavCount) ui.cavCount.innerText = gameState.army.cavalry;
+        if (ui.cavCap) ui.cavCap.innerText = getUnitCapacity('cavalry');
+
+        // render the foreign realms and attack options
+    if (ui.foreignRealms) {
+        ui.foreignRealms.innerHTML = "";
+        
+        // safety check to ensure neighbors exist on older saves
+        if (!gameState.neighbors || gameState.neighbors.length === 0) generateNeighbors();
+
+        gameState.neighbors.forEach((realm, index) => {
+            if (realm.isDefeated) return;
+            const div = document.createElement("div");
+            div.style.background = "var(--parchment)";
+            div.style.border = "1px solid var(--wood-light)";
+            div.style.padding = "12px";
+            div.style.marginBottom = "10px";
+            div.style.borderRadius = "5px";
+            div.style.textAlign = "left";
+            
+            // calculate the total enemy footprint for the header
+            const totalEnemyPower = realm.army.infantry + realm.army.archers + realm.army.cavalry;
+            const powerDisplay = realm.scouted ? totalEnemyPower : `~${totalEnemyPower}`;
+            const wealthDisplay = realm.scouted ? realm.wealth : (realm.wealth > 150 ? 'High' : 'Moderate');
+
+            div.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <b style="font-size: 1.1em; color: var(--wood-dark);">${realm.name}</b>
+                    <span style="color: #c0392b; font-weight: bold;" title="Total Troops"><i class="fas fa-swords"></i> ${powerDisplay} Men</span>
+                </div>
+                <div style="font-size: 0.85em; color: #555; margin-bottom: 12px; font-style: italic;">
+                    Wealth: ${wealthDisplay} &bull; Territory Size: ${realm.land}
+                </div>
+                
+                <div style="display: flex; gap: 8px;">
+                    <!-- toggle between paying to scout or viewing the unlocked report -->
+                    ${!realm.scouted ? `
+                    <button onclick="scoutNeighbor(${index})" style="flex: 1; padding: 8px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                        <i class="fas fa-eye"></i> Scout (50 🪙)
+                    </button>
+                    ` : `
+                    <button onclick="viewRealmInfo(${index})" style="flex: 1; padding: 8px; background: #2980b9; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                        <i class="fas fa-file-contract"></i> View Info
+                    </button>
+                    `}
+                    
+                    <button onclick="attackNeighbor(${index}, 'raid')" style="flex: 1; padding: 8px; background: #d35400; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                        <i class="fas fa-fire"></i> Raid
+                    </button>
+                    <button onclick="attackNeighbor(${index}, 'conquer')" style="flex: 1; padding: 8px; background: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                        <i class="fas fa-flag"></i> Conquer
+                    </button>
+                </div>
+            `;
+            ui.foreignRealms.appendChild(div);
+        });
+    // Render the interactive World Map
+    if (ui.mapGrid && gameState.mapTiles) {
+        ui.mapGrid.innerHTML = ""; 
+        
+        if (gameState.mapTiles.length === 0) generateMap();
+        
+        gameState.mapTiles.forEach((tile) => {
+            const cell = document.createElement("div");
+            
+            // adjusted styling for 10x10 density
+            cell.style.borderRadius = "2px";
+            cell.style.cursor = "pointer";
+            cell.style.border = "1px solid rgba(0,0,0,0.1)";
+            cell.style.minHeight = "25px"; // much smaller to fit 100 tiles
+            cell.style.display = "flex";
+            cell.style.alignItems = "center";
+            cell.style.justifyContent = "center";
+            
+            let displayOwner = "Wilderness";
+
+            if (tile.ownerType === "player") {
+                cell.style.background = "#27ae60"; 
+                cell.innerHTML = `<i class="fas fa-crown" style="color: white; font-size: 0.7em;"></i>`;
+                displayOwner = "The Crown";
+            } else if (tile.ownerType === "vassal") {
+                cell.style.background = "#2980b9"; 
+                displayOwner = "Your Vassal";
+            } else if (tile.ownerType === "neighbor" && tile.ownerId !== null) {
+                const neighbor = gameState.neighbors[tile.ownerId];
+                if (neighbor && !neighbor.isDefeated) {
+                    cell.style.background = neighbor.color;
+                    displayOwner = neighbor.name;
+                } else {
+                    cell.style.background = "#bdc3c7"; 
+                }
+            } else {
+                cell.style.background = "#ecf0f1"; // wilderness color
+            }
+            
+            cell.onclick = () => {
+                Swal.fire({
+                    title: tile.name,
+                    text: `Controlled by: ${displayOwner}`,
+                    background: '#f4e8c1',
+                    confirmButtonColor: '#8b5a2b',
+                    color: '#333'
+                });
+            };
+            
+            ui.mapGrid.appendChild(cell);
+        });
+    }
+    }
     }
 }
 
@@ -207,10 +346,12 @@ function ageOneYear() {
     }
 
     // 1. Economy: Taxes & Upkeep
-    const taxesCollected = Math.floor(gameState.population / 10); 
+    const taxesCollected = Math.floor((gameState.population / 10) * gameState.landSize); 
+    const armyUpkeep = (gameState.army.infantry * 1) + (gameState.army.archers * 2) + (gameState.army.cavalry * 5); 
     const baseUpkeepCost = 25; 
-    const totalUpkeep = baseUpkeepCost + totalBuildingUpkeep;
+    const totalUpkeep = baseUpkeepCost + totalBuildingUpkeep + armyUpkeep;
     const netProfit = (taxesCollected + buildingGold) - totalUpkeep;
+    
     gameState.gold += netProfit;
 
     // 2. Agriculture: Food & Starvation
@@ -243,7 +384,26 @@ function ageOneYear() {
         }
     }
     
-    const randomEvent = events[Math.floor(Math.random() * events.length)];
+    // filter the event pool based on current kingdom conditions
+    const possibleEvents = events.filter(event => {
+        // if an event doesn't have a condition attached, assume it can always happen
+        if (!event.condition) return true;
+        
+        // otherwise, run the condition check against our current game state
+        return event.condition(gameState);
+    });
+
+    // safety fallback: if somehow NO conditions are met, just use the full list
+    const validEvents = possibleEvents.length > 0 ? possibleEvents : events;
+    
+    // pick a random event from the newly filtered list
+    const randomEvent = validEvents[Math.floor(Math.random() * validEvents.length)];
+
+    let eventText = randomEvent.text
+        .replace(/{house}/g, gameState.houseName)
+        .replace(/{title}/g, gameState.rulerTitle)
+        .replace(/{spouse}/g, gameState.spouse ? gameState.spouse.name : "the Royal Consort")
+        .replace(/{heir}/g, gameState.children.length > 0 ? gameState.children[0].name : "the heir");
 
     // build the highly detailed UI for the yearly report
     let reportHtml = `
@@ -251,6 +411,7 @@ function ageOneYear() {
             <b>Taxes:</b> +${taxesCollected} 🪙<br>
             ${buildingGold > 0 ? `<b style="color: #27ae60;">Infrastructure Income:</b> +${buildingGold} 🪙<br>` : ''}
             <b>Castle Upkeep:</b> -${baseUpkeepCost} 🪙<br>
+            ${armyUpkeep > 0 ? `<b style="color: #c0392b;">Army Wages:</b> -${armyUpkeep} 🪙<br>` : ''}
             ${totalBuildingUpkeep > 0 ? `<b style="color: #c0392b;">Building Upkeep:</b> -${totalBuildingUpkeep} 🪙<br>` : ''}
             <div style="border-top: 1px solid #ccc; margin-top: 5px; padding-top: 5px;">
                 <b>Net Gold:</b> ${netProfit >= 0 ? '+' : ''}${netProfit} 🪙
@@ -268,7 +429,7 @@ function ageOneYear() {
             ${buildingPrestige > 0 ? `<div style="margin-top: 8px; color: #d35400;"><b>Passive Prestige:</b> +${buildingPrestige} 🌟</div>` : ''}
             ${starved > 0 ? `<br><b style="color:#c0392b; font-size: 1.1em;">Famine! ${starved} people starved to death.</b>` : ''}
         </div>
-        <p style="margin-top: 15px;">${randomEvent.text}</p>
+        <p style="margin-top: 15px;">${eventText}</p>
     `;
 
     Swal.fire({
@@ -364,7 +525,7 @@ function haveChild() {
         if (gameState.children === undefined) gameState.children = [];
 
         const newBaby = {
-            name: babyName,
+            name: `${babyName} ${gameState.houseName}`,
             isMale: isMale,
             baseTitle: baseTitle,
             heirTitle: heirTitle,
@@ -628,12 +789,16 @@ function startNewDynasty() {
         gameState.population = 500;
         gameState.prestige = 50; 
         gameState.food = 1000; 
+        gameState.army = { infantry: 0, archers: 0, cavalry: 0 };
         
         // wipe family and infrastructure
         gameState.children = [];
         gameState.historicalOffspring = [];
         gameState.spouse = null;
         gameState.pastRulers = [];
+        gameState.neighbors = [];
+        generateNeighbors();
+        generateMap();
         
         gameState.buildings = {};
         for (const key in buildingData) {
@@ -695,6 +860,357 @@ function buyBuilding(buildingKey, cost) {
             color: '#333'
         });
     }
+}
+
+// calculate total troop capacity based on base limits and infrastructure
+// calculate capacity for specific unit types based on owned buildings
+function getUnitCapacity(type) {
+    let cap = type === 'infantry' ? 50 : 0; // baseline kingdom can only support 50 infantry
+    
+    if (type === 'infantry' && gameState.buildings.barracks) cap += gameState.buildings.barracks * buildingData.barracks.capInfantry;
+    if (type === 'archers' && gameState.buildings.archery_range) cap += gameState.buildings.archery_range * buildingData.archery_range.capArchers;
+    if (type === 'cavalry' && gameState.buildings.stables) cap += gameState.buildings.stables * buildingData.stables.capCavalry;
+    
+    return cap;
+}
+
+// draft specific unit types into the standing army
+function recruitUnit(type) {
+    const cap = getUnitCapacity(type);
+    const current = gameState.army[type] || 0;
+    
+    // higher tier units cost more to outfit
+    const costs = { infantry: 2, archers: 4, cavalry: 10 };
+    const unitCost = costs[type];
+
+    if (current >= cap) {
+        Swal.fire({ title: 'Capacity Reached', text: `Build more military infrastructure to support more ${type}.`, icon: 'warning', confirmButtonColor: '#8b5a2b', background: '#f4e8c1', color: '#333' });
+        return;
+    }
+
+    Swal.fire({
+        title: `Draft ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+        text: `Available Capacity: ${current} / ${cap}. (Cost: ${unitCost} 🪙 per soldier)`,
+        input: 'number',
+        inputAttributes: { min: 1, max: cap - current },
+        showCancelButton: true,
+        confirmButtonText: 'Recruit',
+        confirmButtonColor: '#c0392b',
+        background: '#f4e8c1',
+        color: '#333'
+    }).then((result) => {
+        if (result.isConfirmed && result.value > 0) {
+            const amount = parseInt(result.value);
+            const totalCost = amount * unitCost;
+
+            if (gameState.gold >= totalCost && gameState.population > amount) {
+                gameState.gold -= totalCost;
+                gameState.population -= amount; 
+                gameState.army[type] += amount;
+                
+                addLogEntry(`Drafted ${amount} ${type} into the royal army.`);
+                saveGame();
+                updateUI();
+            } else {
+                Swal.fire({ title: 'Cannot Recruit', text: 'You lack the gold or available peasantry to draft these troops!', icon: 'error', confirmButtonColor: '#8b5a2b', background: '#f4e8c1', color: '#333' });
+            }
+        }
+    });
+}
+
+// procedurally generate neighboring kingdoms to interact with
+function generateNeighbors() {
+    if (gameState.neighbors && gameState.neighbors.length > 0) return;
+    
+    gameState.neighbors = [];
+    
+    const prefixes = ["North", "South", "East", "West", "Upper", "Lower", "New"];
+    const bases = ["Mercia", "Wessex", "Frankia", "Aquitaine", "Lombardy", "Saxony", "Pictland", "Frisia", "Burgundy", "Caledonia", "Gothia"];
+    const mapColors = ['#8e44ad', '#d35400', '#16a085', '#2c3e50', '#b8860b', '#c0392b', '#2980b9', '#f39c12', '#27ae60', '#8b4513']; 
+    
+    // spawn 10 permanent kingdoms for the expanded map
+    while (gameState.neighbors.length < 10) {
+        const usePrefix = Math.random() > 0.5;
+        const realmName = (usePrefix ? prefixes[Math.floor(Math.random() * prefixes.length)] + " " : "") + bases[Math.floor(Math.random() * bases.length)];
+        const isStrong = Math.random() > 0.6; 
+        const multiplier = isStrong ? 2.5 : 1;
+        
+        gameState.neighbors.push({
+            name: realmName,
+            army: {
+                infantry: Math.floor((Math.random() * 50 + 20) * multiplier),
+                archers: Math.floor((Math.random() * 30 + 10) * multiplier),
+                cavalry: Math.floor((Math.random() * 20 + 5) * multiplier)
+            },
+            wealth: isStrong ? Math.floor(Math.random() * 300) + 200 : Math.floor(Math.random() * 100) + 50,
+            land: isStrong ? 3 : 1, // acts as base multiplier for territory expansion
+            scouted: false,
+            isDefeated: false,
+            color: mapColors[gameState.neighbors.length] 
+        });
+    }
+}
+
+// Gets adjacent tile indices for a 10x10 grid
+function getAdjacent(index) {
+    const adj = [];
+    const x = index % 10;
+    const y = Math.floor(index / 10);
+    if (x > 0) adj.push(index - 1); // left
+    if (x < 9) adj.push(index + 1); // right
+    if (y > 0) adj.push(index - 10); // up
+    if (y < 9) adj.push(index + 10); // down
+    return adj;
+}
+
+// Generates a 10x10 grid map. The player controls the center, surrounded by vassals and enemies.
+function generateMap() {
+    gameState.mapTiles = new Array(100).fill(null).map((_, i) => ({ 
+        id: i, ownerType: "wilderness", ownerId: null, name: "Wilderness" 
+    }));
+
+    // randomly place the player capital away from the extreme edges
+    const pX = Math.floor(Math.random() * 6) + 2; 
+    const pY = Math.floor(Math.random() * 6) + 2;
+    const pIndex = (pY * 10) + pX;
+
+    gameState.mapTiles[pIndex] = { id: pIndex, ownerType: "player", ownerId: null, name: "The Capital" };
+    
+    // assign adjacent tiles to vassals
+    const playerAdj = getAdjacent(pIndex);
+    playerAdj.forEach(adj => {
+        gameState.mapTiles[adj] = { id: adj, ownerType: "vassal", ownerId: null, name: "Vassal State" };
+    });
+
+    // plant expansion seeds for the AI neighbors
+    let seeds = [];
+    gameState.neighbors.forEach((n, idx) => {
+        let seedIndex;
+        // find a random empty spot for their capital
+        do {
+            seedIndex = Math.floor(Math.random() * 100);
+        } while (gameState.mapTiles[seedIndex].ownerType !== "wilderness");
+
+        gameState.mapTiles[seedIndex] = { id: seedIndex, ownerType: "neighbor", ownerId: idx, name: `${n.name} Region` };
+        
+        // base tile count scales heavily with the 'land' stat
+        seeds.push({ index: seedIndex, targetCount: n.land * 6, currentCount: 1, ownerId: idx, name: n.name });
+    });
+
+    // organic border growth logic (expand to adjacent tiles until target size is reached)
+    let isExpanding = true;
+    while(isExpanding) {
+        isExpanding = false;
+        seeds.forEach(seed => {
+            if (seed.currentCount < seed.targetCount) {
+                // gather all empty tiles touching this specific realm
+                let possibleMoves = [];
+                gameState.mapTiles.forEach((t, i) => {
+                    if (t.ownerType === "neighbor" && t.ownerId === seed.ownerId) {
+                        getAdjacent(i).forEach(adj => {
+                            if (gameState.mapTiles[adj].ownerType === "wilderness" && !possibleMoves.includes(adj)) {
+                                possibleMoves.push(adj);
+                            }
+                        });
+                    }
+                });
+
+                if (possibleMoves.length > 0) {
+                    // claim a random adjacent empty tile
+                    const picked = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+                    gameState.mapTiles[picked] = { id: picked, ownerType: "neighbor", ownerId: seed.ownerId, name: `${seed.name} Region` };
+                    seed.currentCount++;
+                    isExpanding = true; 
+                }
+            }
+        });
+    }
+}
+
+// checks if the player's realm (crownlands or vassals) shares a border with the target neighbor
+function isBorderingNeighbor(neighborIndex) {
+    let playerControlled = [];
+    let enemyControlled = [];
+
+    // map out who owns what
+    gameState.mapTiles.forEach((t, i) => {
+        if (t.ownerType === "player" || t.ownerType === "vassal") playerControlled.push(i);
+        if (t.ownerType === "neighbor" && t.ownerId === neighborIndex) enemyControlled.push(i);
+    });
+
+    // check for touching borders
+    for (let pt of playerControlled) {
+        const adjs = getAdjacent(pt);
+        for (let a of adjs) {
+            if (enemyControlled.includes(a)) return true;
+        }
+    }
+    return false;
+}
+
+// spend gold to reveal the exact unit composition of a neighbor
+function scoutNeighbor(index) {
+    const cost = 50; // cost to fund a spy network
+
+    if (gameState.gold < cost) {
+        Swal.fire({ title: 'Treasury Empty', text: `You need ${cost} gold to fund the spy network.`, icon: 'warning', confirmButtonColor: '#8b5a2b', background: '#f4e8c1', color: '#333' });
+        return;
+    }
+
+    gameState.gold -= cost;
+    gameState.neighbors[index].scouted = true; // lift the fog of war for this specific realm
+    
+    addLogEntry(`Spies have returned from ${gameState.neighbors[index].name}, revealing their troop formations.`);
+    saveGame();
+    updateUI();
+}
+
+// display a detailed intelligence dossier for a fully scouted realm
+function viewRealmInfo(index) {
+    const target = gameState.neighbors[index];
+    const totalTroops = target.army.infantry + target.army.archers + target.army.cavalry;
+
+    Swal.fire({
+        title: `Intelligence Report`,
+        html: `
+            <div style="text-align: left; font-size: 1.1em; line-height: 1.6; color: var(--wood-dark);">
+                <h3 style="margin-top: 0; color: #c0392b; text-align: center;">${target.name}</h3>
+                <p><b><i class="fas fa-coins" style="width: 25px;"></i> Treasury:</b> ${target.wealth} Gold</p>
+                <p><b><i class="fas fa-map" style="width: 25px;"></i> Territory:</b> ${target.land} Land Size</p>
+                <p><b><i class="fab fa-fort-awesome" style="width: 25px;"></i> Total Garrison:</b> ~${totalTroops} Men</p>
+                
+                <hr style="border-top: 1px dashed var(--wood-light); margin: 15px 0;">
+                
+                <h4 style="margin: 0 0 10px 0;">Confirmed Unit Composition:</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 5px; border: 1px solid rgba(0,0,0,0.1);">
+                    <div><i class="fas fa-shield" style="width: 25px; color: #7f8c8d;"></i> <b>Infantry:</b> ${target.army.infantry}</div>
+                    <div><i class="fas fa-bullseye" style="width: 25px; color: #27ae60;"></i> <b>Archers:</b> ${target.army.archers}</div>
+                    <div><i class="fas fa-horse" style="width: 25px; color: #d35400;"></i> <b>Cavalry:</b> ${target.army.cavalry}</div>
+                </div>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Close Dossier',
+        confirmButtonColor: '#8b5a2b',
+        background: '#f4e8c1',
+        color: '#333'
+    });
+}
+
+// execute a tactical military campaign against a specific neighbor
+function attackNeighbor(index, type) {
+    const target = gameState.neighbors[index];
+    const pArmy = gameState.army;
+    const eArmy = target.army;
+
+    // prevent attacking realms that don't share a physical border
+    if (!isBorderingNeighbor(index)) {
+        Swal.fire({ title: 'Too Far!', text: 'You can only attack realms that share a physical border with your territories.', icon: 'warning', confirmButtonColor: '#8b5a2b', background: '#f4e8c1', color: '#333' });
+        return;
+    }
+
+    const totalPlayerTroops = pArmy.infantry + pArmy.archers + pArmy.cavalry;
+    const totalEnemyTroops = eArmy.infantry + eArmy.archers + eArmy.cavalry;
+
+    if (totalPlayerTroops <= 0) {
+        Swal.fire({ title: 'No Army', text: 'You have no soldiers to send into battle!', icon: 'error', confirmButtonColor: '#8b5a2b', background: '#f4e8c1', color: '#333' });
+        return;
+    }
+
+    // 1. roll for random battlefield terrain
+    const terrains = [
+        { name: "Open Plains", buff: "Cavalry is highly effective.", effect: (force) => { force.cavMult *= 1.5; } },
+        { name: "Dense Forest", buff: "Infantry thrives, Cavalry struggles.", effect: (force) => { force.infMult *= 1.2; force.cavMult *= 0.5; } },
+        { name: "High Hills", buff: "Archers have the high ground.", effect: (force) => { force.arcMult *= 1.5; } }
+    ];
+    const terrain = terrains[Math.floor(Math.random() * terrains.length)];
+
+    // 2. setup base multipliers and apply terrain
+    let pForce = { infMult: 1, arcMult: 1, cavMult: 1 };
+    let eForce = { infMult: 1, arcMult: 1, cavMult: 1 };
+
+    terrain.effect(pForce);
+    terrain.effect(eForce);
+
+    // 3. rock-paper-scissors logic
+    // Inf beats Cav, Arc beats Inf, Cav beats Arc. 
+    // They gain up to +50% power depending on how much of their prey is in the enemy army.
+    pForce.infMult += 0.5 * (eArmy.cavalry / (totalEnemyTroops || 1));
+    pForce.arcMult += 0.5 * (eArmy.infantry / (totalEnemyTroops || 1));
+    pForce.cavMult += 0.5 * (eArmy.archers / (totalEnemyTroops || 1));
+
+    eForce.infMult += 0.5 * (pArmy.cavalry / (totalPlayerTroops || 1));
+    eForce.arcMult += 0.5 * (pArmy.infantry / (totalPlayerTroops || 1));
+    eForce.cavMult += 0.5 * (pArmy.archers / (totalPlayerTroops || 1));
+
+    // add a slight random tactical variance (simulating general skill/luck)
+    const pTactics = 1.0 + (Math.random() * 0.2);
+    const eTactics = 1.0 + (Math.random() * 0.2);
+
+    // calculate final combat power
+    const playerPower = (pArmy.infantry * pForce.infMult + pArmy.archers * pForce.arcMult + pArmy.cavalry * pForce.cavMult) * pTactics;
+    const enemyPower = (eArmy.infantry * eForce.infMult + eArmy.archers * eForce.arcMult + eArmy.cavalry * eForce.cavMult) * eTactics;
+
+    let isVictory = playerPower >= enemyPower;
+    let resultHtml = `<div style="font-size: 0.9em; color: #555; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;"><b>Terrain:</b> ${terrain.name}<br><i>${terrain.buff}</i></div>`;
+
+    // 4. casualties math (winners lose 10-30%, losers lose 50-80%)
+    const lossRateP = isVictory ? (0.1 + Math.random() * 0.2) : (0.5 + Math.random() * 0.3);
+    
+    const lostInf = Math.floor(pArmy.infantry * lossRateP);
+    const lostArc = Math.floor(pArmy.archers * lossRateP);
+    const lostCav = Math.floor(pArmy.cavalry * lossRateP);
+    
+    gameState.army.infantry -= lostInf;
+    gameState.army.archers -= lostArc;
+    gameState.army.cavalry -= lostCav;
+
+    const totalLost = lostInf + lostArc + lostCav;
+
+    // 5. apply battle results
+    if (isVictory) {
+        if (type === 'raid') {
+            const loot = target.wealth;
+            gameState.gold += loot;
+            target.wealth = Math.floor(target.wealth / 2);
+            
+            resultHtml += `<b>Victory!</b> Your tactical formation broke the enemy lines.<br><br><b>Loot:</b> +${loot} 🪙<br><b style="color: #c0392b;">Losses:</b> -${totalLost} troops<br><span style="font-size: 0.8em; color: #666;">(${lostInf} Inf, ${lostArc} Arc, ${lostCav} Cav)</span>`;
+            addLogEntry(`Successfully raided ${target.name} for ${loot} gold.`);
+        } else if (type === 'conquer') {
+            gameState.landSize += target.land;
+            gameState.prestige += 50;
+            
+            resultHtml += `<b>Total Victory!</b> You have conquered ${target.name}.<br><br><b>Territory:</b> +${target.land} Land<br><b>Prestige:</b> +50 🌟<br><b style="color: #c0392b;">Losses:</b> -${totalLost} troops`;
+            addLogEntry(`Conquered the realm of ${target.name}! They have been wiped from the map.`);
+            
+            // NEW WORLD MAP CONQUEST LOGIC:
+            target.isDefeated = true; // Mark them as dead
+            
+            // Loop through the map and claim all their tiles for the player!
+            gameState.mapTiles.forEach(tile => {
+                if (tile.ownerType === "neighbor" && tile.ownerId === index) {
+                    tile.ownerType = "player"; // paint it green
+                    tile.name = `Conquered ${target.name}`;
+                }
+            });
+        }
+    } else {
+        gameState.prestige -= 20;
+        resultHtml += `<b>Defeat.</b> Your forces were outmaneuvered by ${target.name}.<br><br><b style="color: #c0392b;">Losses:</b> -${totalLost} troops<br><span style="font-size: 0.8em; color: #666;">(${lostInf} Inf, ${lostArc} Arc, ${lostCav} Cav)</span><br><b>Prestige:</b> -20 🌟`;
+        addLogEntry(`Suffered a crushing tactical defeat against ${target.name}.`);
+    }
+
+    Swal.fire({
+        title: 'Battle Report',
+        html: resultHtml,
+        icon: isVictory ? 'success' : 'error',
+        confirmButtonColor: '#8b5a2b',
+        background: '#f4e8c1',
+        color: '#333'
+    }).then(() => {
+        saveGame();
+        updateUI();
+    });
 }
 
 function addLogEntry(message) {

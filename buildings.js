@@ -16,6 +16,14 @@ const buildingData = {
         goldBonus: 0, foodBonus: 30, healthBonus: 0, prestigeBonus: 0, 
         upkeep: 5 
     },
+    windmill: { 
+        name: "Windmill", 
+        icon: "fa-fan", 
+        baseCost: 200, 
+        desc: "Greatly increases grain processing by +50 🌾/year.", 
+        goldBonus: 0, foodBonus: 50, healthBonus: 0, prestigeBonus: 0, 
+        upkeep: 10 
+    },
     clinic: { 
         name: "Herbalist Clinic", 
         icon: "fa-briefcase-medical", 
@@ -33,19 +41,30 @@ const buildingData = {
         upkeep: 2 
     },
     barracks: { 
-        name: "City Barracks", 
-        icon: "fa-shield-halved", 
+        name: "Infantry Barracks", 
+        icon: "fa-shield", 
         baseCost: 300, 
-        desc: "Increases kingdom prestige by +3 🌟/year.", 
-        goldBonus: 0, foodBonus: 0, healthBonus: 0, prestigeBonus: 3, 
-        upkeep: 20 
+        desc: "Increases infantry capacity by +50.", 
+        goldBonus: 0, foodBonus: 0, healthBonus: 0, prestigeBonus: 2, 
+        upkeep: 20,
+        capInfantry: 50
     },
-    windmill: { 
-        name: "Windmill", 
-        icon: "fa-fan", 
-        baseCost: 200, 
-        desc: "Greatly increases grain processing by +50 🌾/year.", 
-        goldBonus: 0, foodBonus: 50, healthBonus: 0, prestigeBonus: 0, 
-        upkeep: 10 
-    }
+    archery_range: { 
+        name: "Archery Range", 
+        icon: "fa-bullseye", 
+        baseCost: 400, 
+        desc: "Increases archer capacity by +30.", 
+        goldBonus: 0, foodBonus: 0, healthBonus: 0, prestigeBonus: 3, 
+        upkeep: 25,
+        capArchers: 30
+    },
+    stables: { 
+        name: "Royal Stables", 
+        icon: "fa-horse", 
+        baseCost: 600, 
+        desc: "Increases cavalry capacity by +20.", 
+        goldBonus: 0, foodBonus: 0, healthBonus: 0, prestigeBonus: 5, 
+        upkeep: 40,
+        capCavalry: 20
+    },
 };
