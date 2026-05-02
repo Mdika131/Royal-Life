@@ -118,6 +118,12 @@ function loadGame() {
 }
 
 function updateUI() {
+    // dynamically sum regional populations for the global counter
+    if (gameState.mapTiles && gameState.mapTiles.length > 0) {
+        gameState.population = gameState.mapTiles
+            .filter(t => t.ownerType === "player" || t.ownerType === "vassal")
+            .reduce((sum, tile) => sum + (tile.population || 0), 0);
+    }
     // update standard stats
     ui.name.innerHTML = `${gameState.rulerTitle} ${gameState.rulerName} <span style="font-size: 0.6em; display: block; color: var(--gold); margin-top: 4px;">House ${gameState.houseName}</span>`;
     ui.titleruler.innerText = gameState.rulerTitle;
@@ -325,13 +331,19 @@ function updateUI() {
             }
             
             cell.onclick = () => {
-                Swal.fire({
-                    title: tile.name,
-                    html: `<b>Controlled by:</b> ${displayOwner}<br><b>Terrain:</b> ${tile.terrain}`,
-                    background: '#f4e8c1',
-                    confirmButtonColor: '#8b5a2b',
-                    color: '#333'
-                });
+                if (tile.ownerType === "player" || tile.ownerType === "vassal") {
+                    // open micromanagement for owned lands
+                    manageRegion(tile.id);
+                } else {
+                    // default view for foreign/wilderness lands
+                    Swal.fire({
+                        title: tile.name,
+                        html: `<b>Controlled by:</b> ${displayOwner}<br><b>Terrain:</b> ${tile.terrain}<br><br><i>Conquer this region to manage its development.</i>`,
+                        background: '#f4e8c1',
+                        confirmButtonColor: '#8b5a2b',
+                        color: '#333'
+                    });
+                }
             };
             
             ui.mapGrid.appendChild(cell);
@@ -366,22 +378,44 @@ function ageOneYear() {
         }
     }
 
-    // 1. Economy: Taxes & Upkeep
-    const taxesCollected = Math.floor((gameState.population / 20) * gameState.landSize); 
-    const armyUpkeep = (gameState.army.infantry * 1) + (gameState.army.archers * 2) + (gameState.army.cavalry * 5); 
-    const baseUpkeepCost = 25; 
+    // 1. Feudal Regional Economy & Population Dynamics
+    let regionalTaxes = 0;
+    let regionalFood = 0;
+    let totalRealmPop = 0;
+    const harvestQuality = Math.random() + 0.5; // global weather modifier
+
+    // process every single map tile independently
+    gameState.mapTiles.forEach(tile => {
+        if (tile.ownerType === "player" || tile.ownerType === "vassal") {
+            // natural population growth (1% to 3% annually)
+            tile.population = Math.floor(tile.population * (1.01 + (Math.random() * 0.02)));
+            totalRealmPop += tile.population;
+
+            // Feudal Tax Formula: (Pop / 10000) * Development * Wealth
+            const localTax = Math.floor((tile.population / 10000) * tile.development * tile.wealth);
+            regionalTaxes += localTax;
+
+            // Regional Agriculture Formula: scales with pop and development
+            const localFood = Math.floor(tile.population * harvestQuality * (1 + (tile.development * 0.1)));
+            regionalFood += localFood;
+        }
+    });
+
+    // dynamically update the global UI counter to reflect the total regions
+    gameState.population = totalRealmPop;
+
+    // Apply Upkeep and Totals
+    const armyUpkeep = (gameState.army.infantry * 0.5) + (gameState.army.archers * 1) + (gameState.army.cavalry * 3); 
+    const baseUpkeepCost = 100; 
     const totalUpkeep = baseUpkeepCost + totalBuildingUpkeep + armyUpkeep;
-    const netProfit = (taxesCollected + buildingGold) - totalUpkeep;
     
+    const netProfit = (regionalTaxes + buildingGold) - totalUpkeep;
     gameState.gold += netProfit;
 
-    // 2. Agriculture: Food & Starvation
-    const harvestQuality = Math.random() + 0.5; 
-    const foodProduced = Math.floor(gameState.population * harvestQuality);
-    const foodConsumed = gameState.population; 
-    const netFood = (foodProduced + buildingFood) - foodConsumed;
-    
+    const foodConsumed = gameState.population; // each person eats 1 food
+    const netFood = (regionalFood + buildingFood) - foodConsumed;
     gameState.food += netFood;
+    
     gameState.health += buildingHealth;
     gameState.prestige += buildingPrestige;
 
@@ -429,7 +463,7 @@ function ageOneYear() {
     // build the highly detailed UI for the yearly report
     let reportHtml = `
         <div style="text-align: left; background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.9em;">
-            <b>Taxes:</b> +${taxesCollected} 🪙<br>
+            <b>Regional Taxes:</b> +${regionalTaxes} 🪙<br>
             ${buildingGold > 0 ? `<b style="color: #27ae60;">Infrastructure Income:</b> +${buildingGold} 🪙<br>` : ''}
             <b>Castle Upkeep:</b> -${baseUpkeepCost} 🪙<br>
             ${armyUpkeep > 0 ? `<b style="color: #c0392b;">Army Wages:</b> -${armyUpkeep} 🪙<br>` : ''}
@@ -440,7 +474,7 @@ function ageOneYear() {
 
             <hr style="border: 1px solid #ddd; margin: 8px 0;">
             
-            <b>Harvest:</b> +${foodProduced} 🌾<br>
+            <b>Regional Harvest:</b> +${regionalFood} 🌾<br>
             ${buildingFood > 0 ? `<b style="color: #27ae60;">Infrastructure Storage:</b> +${buildingFood} 🌾<br>` : ''}
             <b>Eaten:</b> -${foodConsumed} 🌾<br>
             <div style="border-top: 1px solid #ccc; margin-top: 5px; padding-top: 5px;">
@@ -806,10 +840,9 @@ function startNewDynasty() {
         // reset stats
         gameState.age = 20;
         gameState.health = 100;
-        gameState.gold = 100;
-        gameState.population = 500;
+        gameState.gold = 500;
         gameState.prestige = 50; 
-        gameState.food = 1000; 
+        gameState.food = 150000; 
         gameState.army = { infantry: 0, archers: 0, cavalry: 0 };
         gameState.armyExperience = 0;
         gameState.landSize = 1;
@@ -885,7 +918,61 @@ function buyBuilding(buildingKey, cost) {
     }
 }
 
-// calculate total troop capacity based on base limits and infrastructure
+// opens the micromanagement dashboard for a player-owned region
+function manageRegion(tileIndex) {
+    const region = gameState.mapTiles[tileIndex];
+    
+    // scaling costs based on current development level
+    const devCost = region.development * 50;
+    const fortCost = region.defense * 10;
+
+    Swal.fire({
+        title: region.name,
+        html: `
+            <div style="text-align: left; color: var(--wood-dark); font-size: 1.1em;">
+                <p><i class="fas fa-users" style="width: 25px;"></i> <b>Local Population:</b> ${region.population}</p>
+                <p><i class="fas fa-coins" style="width: 25px;"></i> <b>Local Wealth:</b> ${region.wealth}</p>
+                <p><i class="fas fa-hammer" style="width: 25px;"></i> <b>Development:</b> Level ${region.development}</p>
+                <p><i class="fas fa-shield-halved" style="width: 25px;"></i> <b>Fortifications:</b> ${region.defense}</p>
+            </div>
+        `,
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: `Invest Dev (${devCost} 🪙)`,
+        denyButtonText: `Build Fort (${fortCost} 🪙)`,
+        cancelButtonText: 'Close',
+        confirmButtonColor: '#27ae60',
+        denyButtonColor: '#2980b9',
+        background: '#f4e8c1',
+        color: '#333'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            if (gameState.gold >= devCost) {
+                gameState.gold -= devCost;
+                region.development += 1;
+                region.wealth += 15;
+                addLogEntry(`Invested in the development of ${region.name}.`);
+                saveGame();
+                updateUI();
+                manageRegion(tileIndex); // reload popup to show new stats
+            } else {
+                Swal.fire({ title: 'Not Enough Gold', icon: 'error', confirmButtonColor: '#8b5a2b', background: '#f4e8c1', color: '#333' });
+            }
+        } else if (result.isDenied) {
+            if (gameState.gold >= fortCost) {
+                gameState.gold -= fortCost;
+                region.defense += 10;
+                addLogEntry(`Expanded the fortifications in ${region.name}.`);
+                saveGame();
+                updateUI();
+                manageRegion(tileIndex); 
+            } else {
+                Swal.fire({ title: 'Not Enough Gold', icon: 'error', confirmButtonColor: '#8b5a2b', background: '#f4e8c1', color: '#333' });
+            }
+        }
+    });
+}
+
 // calculate capacity for specific unit types based on owned buildings
 function getUnitCapacity(type) {
     let cap = type === 'infantry' ? 50 : 0; // baseline kingdom can only support 50 infantry
@@ -932,9 +1019,24 @@ function recruitUnit(type) {
             }
 
             if (gameState.gold >= totalCost && gameState.population > amount) {
-                gameState.gold -= totalCost;
-                gameState.population -= amount; 
+                gameState.gold -= totalCost; 
                 gameState.army[type] += amount;
+
+                // dynamically pull the required drafted men from your most populated regions
+                let remainingDraft = amount;
+                const playerTiles = gameState.mapTiles
+                    .filter(t => t.ownerType === "player" || t.ownerType === "vassal")
+                    .sort((a, b) => b.population - a.population); // sort largest to smallest
+                
+                for (let pt of playerTiles) {
+                    if (remainingDraft <= 0) break;
+                    // never draft a region below 100 people so it doesn't completely wipe out
+                    const take = Math.min(pt.population - 100, remainingDraft); 
+                    if (take > 0) {
+                        pt.population -= take;
+                        remainingDraft -= take;
+                    }
+                }
                 
                 addLogEntry(`Drafted ${amount} ${type} into the royal army.`);
                 saveGame();
@@ -1021,7 +1123,12 @@ function generateMap() {
         ownerType: "wilderness", 
         ownerId: null, 
         name: "Wilderness",
-        terrain: terrainTypes[Math.floor(Math.random() * terrainTypes.length)]
+        terrain: terrainTypes[Math.floor(Math.random() * terrainTypes.length)],
+
+        population: Math.floor(Math.random() * 20000) + 5000,
+        wealth: Math.floor(Math.random() * 5) + 1, //
+        defense: 10, 
+        development: 1 
     }));
 
     // randomly place player capital safely within the grid bounds
@@ -1031,6 +1138,9 @@ function generateMap() {
 
     gameState.mapTiles[pIndex].ownerType = "player";
     gameState.mapTiles[pIndex].name = "The Capital";
+    gameState.mapTiles[pIndex].population = Math.floor(Math.random() * 30000) + 50000; // 50k - 80k
+    gameState.mapTiles[pIndex].development = 3;
+    gameState.mapTiles[pIndex].wealth = 5;
     
     const playerAdj = getAdjacent(pIndex);
     playerAdj.forEach(adj => {
