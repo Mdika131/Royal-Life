@@ -44,27 +44,27 @@ const buildingData = {
         name: "Infantry Barracks", 
         icon: "fa-shield", 
         baseCost: 300, 
-        desc: "Increases infantry capacity by +50.", 
+        desc: "Increases infantry capacity by +500.", 
         goldBonus: 0, foodBonus: 0, healthBonus: 0, prestigeBonus: 2, 
         upkeep: 20,
-        capInfantry: 50
+        capInfantry: 500
     },
     archery_range: { 
         name: "Archery Range", 
         icon: "fa-bullseye", 
         baseCost: 400, 
-        desc: "Increases archer capacity by +30.", 
+        desc: "Increases archer capacity by +300.", 
         goldBonus: 0, foodBonus: 0, healthBonus: 0, prestigeBonus: 3, 
         upkeep: 25,
-        capArchers: 30
+        capArchers: 300
     },
     stables: { 
         name: "Royal Stables", 
         icon: "fa-horse", 
         baseCost: 600, 
-        desc: "Increases cavalry capacity by +20.", 
+        desc: "Increases cavalry capacity by +100.", 
         goldBonus: 0, foodBonus: 0, healthBonus: 0, prestigeBonus: 5, 
         upkeep: 40,
-        capCavalry: 20
+        capCavalry: 100
     },
 };

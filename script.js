@@ -131,7 +131,7 @@ function updateUI() {
     ui.name.innerText = `${gameState.rulerName} ${gameState.houseName}`;
     ui.age.innerText = gameState.age;
     ui.health.innerText = gameState.health;
-    ui.gold.innerText = gameState.gold;
+    ui.gold.innerText = Math.round(gameState.gold * 10) / 10;
     ui.population.innerText = gameState.population;
     ui.prestige.innerText = gameState.prestige;
     ui.food.innerText = gameState.food;
@@ -382,37 +382,42 @@ function ageOneYear() {
     let regionalTaxes = 0;
     let regionalFood = 0;
     let totalRealmPop = 0;
-    const harvestQuality = Math.random() + 0.5; // global weather modifier
+    
+    // weather heavily dictates medieval survival. 0.85 (famine) to 1.15 (bounty)
+    const harvestQuality = 0.85 + (Math.random() * 0.30); 
 
     // process every single map tile independently
     gameState.mapTiles.forEach(tile => {
         if (tile.ownerType === "player" || tile.ownerType === "vassal") {
-            // natural population growth (1% to 3% annually)
-            tile.population = Math.floor(tile.population * (1.01 + (Math.random() * 0.02)));
+            // slower, historical population growth (0.5% to 1.5% annually)
+            tile.population = Math.floor(tile.population * (1.005 + (Math.random() * 0.01)));
             totalRealmPop += tile.population;
 
-            // Feudal Tax Formula: (Pop / 10000) * Development * Wealth
+            // STRICT Feudal Tax Formula: Local lords keep most of the wealth. 
+            // The Crown extracts roughly 1 gold per 10,000 peasants per wealth/dev level.
             const localTax = Math.floor((tile.population / 10000) * tile.development * tile.wealth);
             regionalTaxes += localTax;
 
-            // Regional Agriculture Formula: scales with pop and development
-            const localFood = Math.floor(tile.population * harvestQuality * (1 + (tile.development * 0.1)));
+            // REALISTIC Agriculture: Margins are razor-thin. Development provides minor efficiency (+2% per level)
+            const localFood = Math.floor(tile.population * harvestQuality * (1 + (tile.development * 0.02)));
             regionalFood += localFood;
         }
     });
 
-    // dynamically update the global UI counter to reflect the total regions
+    // dynamically update the global UI counter
     gameState.population = totalRealmPop;
 
-    // Apply Upkeep and Totals
-    const armyUpkeep = (gameState.army.infantry * 0.5) + (gameState.army.archers * 1) + (gameState.army.cavalry * 3); 
-    const baseUpkeepCost = 100; 
+    // Apply Upkeep and Totals (army upkeep scaled down to match the new 100-man batch system)
+    const armyUpkeep = Math.ceil((gameState.army.infantry * 0.02) + (gameState.army.archers * 0.04) + (gameState.army.cavalry * 0.1)); 
+    const baseUpkeepCost = 25; 
     const totalUpkeep = baseUpkeepCost + totalBuildingUpkeep + armyUpkeep;
     
     const netProfit = (regionalTaxes + buildingGold) - totalUpkeep;
     gameState.gold += netProfit;
 
-    const foodConsumed = gameState.population; // each person eats 1 food
+    gameState.gold = Math.round(gameState.gold * 10) / 10;  
+
+    const foodConsumed = gameState.population; // each person eats exactly 1 unit of food
     const netFood = (regionalFood + buildingFood) - foodConsumed;
     gameState.food += netFood;
     
@@ -840,9 +845,9 @@ function startNewDynasty() {
         // reset stats
         gameState.age = 20;
         gameState.health = 100;
-        gameState.gold = 500;
+        gameState.gold = 200;
         gameState.prestige = 50; 
-        gameState.food = 150000; 
+        gameState.food = 10000; 
         gameState.army = { infantry: 0, archers: 0, cavalry: 0 };
         gameState.armyExperience = 0;
         gameState.landSize = 1;
@@ -923,8 +928,8 @@ function manageRegion(tileIndex) {
     const region = gameState.mapTiles[tileIndex];
     
     // scaling costs based on current development level
-    const devCost = region.development * 50;
-    const fortCost = region.defense * 10;
+    const devCost = region.development * 30;
+    const fortCost = region.defense * 15;
 
     Swal.fire({
         title: region.name,
@@ -950,7 +955,7 @@ function manageRegion(tileIndex) {
             if (gameState.gold >= devCost) {
                 gameState.gold -= devCost;
                 region.development += 1;
-                region.wealth += 15;
+                region.wealth += Math.floor(region.population / 10000);
                 addLogEntry(`Invested in the development of ${region.name}.`);
                 saveGame();
                 updateUI();
@@ -961,7 +966,7 @@ function manageRegion(tileIndex) {
         } else if (result.isDenied) {
             if (gameState.gold >= fortCost) {
                 gameState.gold -= fortCost;
-                region.defense += 10;
+                region.defense += 1;
                 addLogEntry(`Expanded the fortifications in ${region.name}.`);
                 saveGame();
                 updateUI();
@@ -975,7 +980,7 @@ function manageRegion(tileIndex) {
 
 // calculate capacity for specific unit types based on owned buildings
 function getUnitCapacity(type) {
-    let cap = type === 'infantry' ? 50 : 0; // baseline kingdom can only support 50 infantry
+    let cap = type === 'infantry' ? 500 : 0; // baseline kingdom can only support 50 infantry
     
     if (type === 'infantry' && gameState.buildings.barracks) cap += gameState.buildings.barracks * buildingData.barracks.capInfantry;
     if (type === 'archers' && gameState.buildings.archery_range) cap += gameState.buildings.archery_range * buildingData.archery_range.capArchers;
@@ -990,7 +995,7 @@ function recruitUnit(type) {
     const current = gameState.army[type] || 0;
     
     // higher tier units cost more to outfit
-    const costs = { infantry: 2, archers: 4, cavalry: 10 };
+    const costs = { infantry: 0.1, archers: 0.5, cavalry: 1 };
     const unitCost = costs[type];
 
     if (current >= cap) {
@@ -1011,7 +1016,7 @@ function recruitUnit(type) {
     }).then((result) => {
         if (result.isConfirmed && result.value > 0) {
             const amount = parseInt(result.value);
-            const totalCost = amount * unitCost;
+            const totalCost = Math.round((amount * unitCost) * 10) / 10;
 
             const currentTotalTroops = gameState.army.infantry + gameState.army.archers + gameState.army.cavalry;
             if (currentTotalTroops + amount > 0) {
@@ -1056,12 +1061,12 @@ function generateNeighbors() {
     const prefixes = ["North", "South", "East", "West", "Upper", "Lower", "New"];
     const bases = ["Mercia", "Wessex", "Frankia", "Aquitaine", "Lombardy", "Saxony", "Pictland", "Frisia", "Burgundy", "Caledonia", "Gothia"];
     
-    // request exactly 20 unique colors for 20 permanent AI realms
-    const mapColors = generateUniqueColors(20); 
+    // request exactly 20 unique colors for 30 permanent AI realms
+    const mapColors = generateUniqueColors(30); 
     
     const usedNames = new Set();
     
-    while (gameState.neighbors.length < 20) {
+    while (gameState.neighbors.length < 30) {
         let realmName;
         // keep rolling a new name until we get one that isn't in the usedNames set
         do {
@@ -1076,9 +1081,9 @@ function generateNeighbors() {
         gameState.neighbors.push({
             name: realmName,
             army: {
-                infantry: Math.floor((Math.random() * 50 + 20) * (isStrong ? 2 : 1)),
-                archers: Math.floor((Math.random() * 30 + 10) * (isStrong ? 2 : 1)),
-                cavalry: Math.floor((Math.random() * 20 + 5) * (isStrong ? 2 : 1))
+                infantry: Math.floor((Math.random() * 800 + 200) * (isStrong ? 2 : 1)),
+                archers: Math.floor((Math.random() * 400 + 100) * (isStrong ? 2 : 1)),
+                cavalry: Math.floor((Math.random() * 200 + 50) * (isStrong ? 2 : 1))
             },
             wealth: isStrong ? Math.floor(Math.random() * 300) + 200 : Math.floor(Math.random() * 100) + 50,
             land: 0, 
@@ -1127,7 +1132,7 @@ function generateMap() {
 
         population: Math.floor(Math.random() * 20000) + 5000,
         wealth: Math.floor(Math.random() * 5) + 1, //
-        defense: 10, 
+        defense: 2,
         development: 1 
     }));
 
@@ -1141,6 +1146,7 @@ function generateMap() {
     gameState.mapTiles[pIndex].population = Math.floor(Math.random() * 30000) + 50000; // 50k - 80k
     gameState.mapTiles[pIndex].development = 3;
     gameState.mapTiles[pIndex].wealth = 5;
+    gameState.mapTiles[pIndex].defense = 5;
     
     const playerAdj = getAdjacent(pIndex);
     playerAdj.forEach(adj => {
@@ -1159,8 +1165,8 @@ function generateMap() {
         gameState.mapTiles[seedIndex].ownerId = idx;
         gameState.mapTiles[seedIndex].name = `${n.name} Region`;
         
-        // strong AI gets 10-14 tiles, weak gets 4-7 tiles
-        const targetSize = (Math.random() > 0.5 ? Math.floor(Math.random() * 5) + 10 : Math.floor(Math.random() * 4) + 4);
+        // strong AI gets 10-16 tiles, weak gets 2-6 tiles
+        const targetSize = (Math.random() > 0.5 ? Math.floor(Math.random() * 6) + 10 : Math.floor(Math.random() * 4) + 2);
         seeds.push({ index: seedIndex, targetCount: targetSize, currentCount: 1, ownerId: idx, name: n.name });
     });
 
