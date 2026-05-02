@@ -1,5 +1,6 @@
 // Game State Object (Easier to manage and save)
 let gameState = {
+    logs: [],
     kingdomName: "Camelot",
     houseName: "Pendragon", 
     rulerName: "Arthur",
@@ -19,6 +20,7 @@ let gameState = {
     landSize: 1,
     neighbors: [],
     mapTiles: [],
+    armyExperience: 0,
     army: {
         infantry: 0,
         archers: 0,
@@ -70,6 +72,7 @@ const royalTraits = [
 function saveGame() {
     // Convert object to string and save to browser memory
     localStorage.setItem("royalSave", JSON.stringify(gameState));
+    
 }
 
 // Save and Load System
@@ -92,6 +95,7 @@ function loadGame() {
         if (gameState.pastRulers === undefined) gameState.pastRulers = [];
         if (gameState.landSize === undefined) gameState.landSize = 1;
         if (gameState.neighbors === undefined) gameState.neighbors = [];
+        if (gameState.armyExperience === undefined) gameState.armyExperience = 0;
         if (gameState.army === undefined || typeof gameState.army === 'number') {
             const oldSoldiers = typeof gameState.army === 'number' ? gameState.army : 0;
             gameState.army = { infantry: oldSoldiers, archers: 0, cavalry: 0 };
@@ -102,6 +106,8 @@ function loadGame() {
                 gameState.buildings[key] = 0;
             }
         }
+        
+        if (!gameState.logs) gameState.logs = [];
         
         updateUI();
         
@@ -123,6 +129,16 @@ function updateUI() {
     ui.population.innerText = gameState.population;
     ui.prestige.innerText = gameState.prestige;
     ui.food.innerText = gameState.food;
+    if (document.getElementById("ui-army-exp-text")) document.getElementById("ui-army-exp-text").innerText = `${gameState.armyExperience} / 100`;
+    if (document.getElementById("ui-army-exp-bar")) document.getElementById("ui-army-exp-bar").style.width = `${gameState.armyExperience}%`;
+    
+    // render persistent chronicle logs
+    const logContainer = document.getElementById("ui-chronicle-log");
+    if (logContainer && gameState.logs) {
+        logContainer.innerHTML = gameState.logs.length > 0 
+            ? gameState.logs.map(log => `<p style="margin-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 5px;"><b></b> ${log.text}</p>`).join("")
+            : "<p><i>The history of this dynasty has yet to be written...</i></p>";
+    }
     
     // safety check: only try to render kids if the html element exists
     if (ui.childrenList) {
@@ -270,23 +286,28 @@ function updateUI() {
         
         if (gameState.mapTiles.length === 0) generateMap();
         
+        const terrainIcons = { "Plains": "", "Forest": "🌲", "Hills": "⛰️", "Mountains": "🏔️" };
+
         gameState.mapTiles.forEach((tile) => {
             const cell = document.createElement("div");
             
-            // adjusted styling for 10x10 density
-            cell.style.borderRadius = "2px";
+            // updated styling for visual depth and terrain support
             cell.style.cursor = "pointer";
-            cell.style.border = "1px solid rgba(0,0,0,0.1)";
-            cell.style.minHeight = "25px"; // much smaller to fit 100 tiles
+            cell.style.minHeight = "22px"; 
             cell.style.display = "flex";
             cell.style.alignItems = "center";
             cell.style.justifyContent = "center";
+            cell.style.fontSize = "10px"; // size for terrain emojis
+            cell.style.boxShadow = "inset 0 0 3px rgba(0,0,0,0.2)"; // subtle 3D tile effect
+            
+            // apply base terrain visual
+            cell.innerHTML = terrainIcons[tile.terrain];
             
             let displayOwner = "Wilderness";
 
             if (tile.ownerType === "player") {
                 cell.style.background = "#27ae60"; 
-                cell.innerHTML = `<i class="fas fa-crown" style="color: white; font-size: 0.7em;"></i>`;
+                cell.innerHTML = `<i class="fas fa-crown" style="color: rgba(255,255,255,0.9); font-size: 11px;"></i>`;
                 displayOwner = "The Crown";
             } else if (tile.ownerType === "vassal") {
                 cell.style.background = "#2980b9"; 
@@ -300,13 +321,13 @@ function updateUI() {
                     cell.style.background = "#bdc3c7"; 
                 }
             } else {
-                cell.style.background = "#ecf0f1"; // wilderness color
+                cell.style.background = "#ecf0f1"; 
             }
             
             cell.onclick = () => {
                 Swal.fire({
                     title: tile.name,
-                    text: `Controlled by: ${displayOwner}`,
+                    html: `<b>Controlled by:</b> ${displayOwner}<br><b>Terrain:</b> ${tile.terrain}`,
                     background: '#f4e8c1',
                     confirmButtonColor: '#8b5a2b',
                     color: '#333'
@@ -346,7 +367,7 @@ function ageOneYear() {
     }
 
     // 1. Economy: Taxes & Upkeep
-    const taxesCollected = Math.floor((gameState.population / 10) * gameState.landSize); 
+    const taxesCollected = Math.floor((gameState.population / 20) * gameState.landSize); 
     const armyUpkeep = (gameState.army.infantry * 1) + (gameState.army.archers * 2) + (gameState.army.cavalry * 5); 
     const baseUpkeepCost = 25; 
     const totalUpkeep = baseUpkeepCost + totalBuildingUpkeep + armyUpkeep;
@@ -690,7 +711,7 @@ function checkDeath(reason = "poor health") {
             // no kids, game over man
             Swal.fire({
                 title: 'Lineage Ended!',
-                text: 'You died with no heirs. The kingdom falls into chaos.',
+                text: 'You died with no heirs. The realm falls into chaos.',
                 icon: 'error',
                 confirmButtonText: 'Start New Dynasty',
                 confirmButtonColor: '#8b2b2b',
@@ -790,6 +811,8 @@ function startNewDynasty() {
         gameState.prestige = 50; 
         gameState.food = 1000; 
         gameState.army = { infantry: 0, archers: 0, cavalry: 0 };
+        gameState.armyExperience = 0;
+        gameState.landSize = 1;
         
         // wipe family and infrastructure
         gameState.children = [];
@@ -903,6 +926,11 @@ function recruitUnit(type) {
             const amount = parseInt(result.value);
             const totalCost = amount * unitCost;
 
+            const currentTotalTroops = gameState.army.infantry + gameState.army.archers + gameState.army.cavalry;
+            if (currentTotalTroops + amount > 0) {
+                gameState.armyExperience = Math.floor(((gameState.armyExperience || 0) * currentTotalTroops) / (currentTotalTroops + amount));
+            }
+
             if (gameState.gold >= totalCost && gameState.population > amount) {
                 gameState.gold -= totalCost;
                 gameState.population -= amount; 
@@ -923,27 +951,35 @@ function generateNeighbors() {
     if (gameState.neighbors && gameState.neighbors.length > 0) return;
     
     gameState.neighbors = [];
-    
     const prefixes = ["North", "South", "East", "West", "Upper", "Lower", "New"];
     const bases = ["Mercia", "Wessex", "Frankia", "Aquitaine", "Lombardy", "Saxony", "Pictland", "Frisia", "Burgundy", "Caledonia", "Gothia"];
-    const mapColors = ['#8e44ad', '#d35400', '#16a085', '#2c3e50', '#b8860b', '#c0392b', '#2980b9', '#f39c12', '#27ae60', '#8b4513']; 
     
-    // spawn 10 permanent kingdoms for the expanded map
-    while (gameState.neighbors.length < 10) {
-        const usePrefix = Math.random() > 0.5;
-        const realmName = (usePrefix ? prefixes[Math.floor(Math.random() * prefixes.length)] + " " : "") + bases[Math.floor(Math.random() * bases.length)];
+    // request exactly 20 unique colors for 20 permanent AI realms
+    const mapColors = generateUniqueColors(20); 
+    
+    const usedNames = new Set();
+    
+    while (gameState.neighbors.length < 20) {
+        let realmName;
+        // keep rolling a new name until we get one that isn't in the usedNames set
+        do {
+            const usePrefix = Math.random() > 0.5;
+            realmName = (usePrefix ? prefixes[Math.floor(Math.random() * prefixes.length)] + " " : "") + bases[Math.floor(Math.random() * bases.length)];
+        } while (usedNames.has(realmName));
+        
+        usedNames.add(realmName); // mark this name as taken
+        
         const isStrong = Math.random() > 0.6; 
-        const multiplier = isStrong ? 2.5 : 1;
         
         gameState.neighbors.push({
             name: realmName,
             army: {
-                infantry: Math.floor((Math.random() * 50 + 20) * multiplier),
-                archers: Math.floor((Math.random() * 30 + 10) * multiplier),
-                cavalry: Math.floor((Math.random() * 20 + 5) * multiplier)
+                infantry: Math.floor((Math.random() * 50 + 20) * (isStrong ? 2 : 1)),
+                archers: Math.floor((Math.random() * 30 + 10) * (isStrong ? 2 : 1)),
+                cavalry: Math.floor((Math.random() * 20 + 5) * (isStrong ? 2 : 1))
             },
             wealth: isStrong ? Math.floor(Math.random() * 300) + 200 : Math.floor(Math.random() * 100) + 50,
-            land: isStrong ? 3 : 1, // acts as base multiplier for territory expansion
+            land: 0, 
             scouted: false,
             isDefeated: false,
             color: mapColors[gameState.neighbors.length] 
@@ -951,59 +987,78 @@ function generateNeighbors() {
     }
 }
 
-// Gets adjacent tile indices for a 10x10 grid
+// Dynamically generate guaranteed unique colors using HSL distribution
+function generateUniqueColors(count) {
+    const colors = [];
+    for (let i = 0; i < count; i++) {
+        // distribute hues evenly across the 360-degree color wheel
+        const hue = Math.floor((360 / count) * i);
+        colors.push(`hsl(${hue}, 65%, 45%)`);
+    }
+    // shuffle the array so neighbor colors aren't clustered in rainbow order
+    return colors.sort(() => Math.random() - 0.5);
+}
+
+// Gets adjacent tile indices for a 15x15 grid
 function getAdjacent(index) {
     const adj = [];
-    const x = index % 10;
-    const y = Math.floor(index / 10);
-    if (x > 0) adj.push(index - 1); // left
-    if (x < 9) adj.push(index + 1); // right
-    if (y > 0) adj.push(index - 10); // up
-    if (y < 9) adj.push(index + 10); // down
+    const x = index % 15;
+    const y = Math.floor(index / 15);
+    if (x > 0) adj.push(index - 1); 
+    if (x < 14) adj.push(index + 1); 
+    if (y > 0) adj.push(index - 15); 
+    if (y < 14) adj.push(index + 15); 
     return adj;
 }
 
-// Generates a 10x10 grid map. The player controls the center, surrounded by vassals and enemies.
+// generates a 15x15 map with terrain and flood-fill contiguous borders
 function generateMap() {
-    gameState.mapTiles = new Array(100).fill(null).map((_, i) => ({ 
-        id: i, ownerType: "wilderness", ownerId: null, name: "Wilderness" 
+    const terrainTypes = ["Plains", "Plains", "Forest", "Forest", "Hills", "Mountains"];
+    
+    // create 225 tiles with random geographic terrain
+    gameState.mapTiles = new Array(225).fill(null).map((_, i) => ({ 
+        id: i, 
+        ownerType: "wilderness", 
+        ownerId: null, 
+        name: "Wilderness",
+        terrain: terrainTypes[Math.floor(Math.random() * terrainTypes.length)]
     }));
 
-    // randomly place the player capital away from the extreme edges
-    const pX = Math.floor(Math.random() * 6) + 2; 
-    const pY = Math.floor(Math.random() * 6) + 2;
-    const pIndex = (pY * 10) + pX;
+    // randomly place player capital safely within the grid bounds
+    const pX = Math.floor(Math.random() * 9) + 3; 
+    const pY = Math.floor(Math.random() * 9) + 3;
+    const pIndex = (pY * 15) + pX;
 
-    gameState.mapTiles[pIndex] = { id: pIndex, ownerType: "player", ownerId: null, name: "The Capital" };
+    gameState.mapTiles[pIndex].ownerType = "player";
+    gameState.mapTiles[pIndex].name = "The Capital";
     
-    // assign adjacent tiles to vassals
     const playerAdj = getAdjacent(pIndex);
     playerAdj.forEach(adj => {
-        gameState.mapTiles[adj] = { id: adj, ownerType: "vassal", ownerId: null, name: "Vassal State" };
+        gameState.mapTiles[adj].ownerType = "vassal";
+        gameState.mapTiles[adj].name = "Vassal State";
     });
 
-    // plant expansion seeds for the AI neighbors
     let seeds = [];
     gameState.neighbors.forEach((n, idx) => {
         let seedIndex;
-        // find a random empty spot for their capital
         do {
-            seedIndex = Math.floor(Math.random() * 100);
+            seedIndex = Math.floor(Math.random() * 225);
         } while (gameState.mapTiles[seedIndex].ownerType !== "wilderness");
 
-        gameState.mapTiles[seedIndex] = { id: seedIndex, ownerType: "neighbor", ownerId: idx, name: `${n.name} Region` };
+        gameState.mapTiles[seedIndex].ownerType = "neighbor";
+        gameState.mapTiles[seedIndex].ownerId = idx;
+        gameState.mapTiles[seedIndex].name = `${n.name} Region`;
         
-        // base tile count scales heavily with the 'land' stat
-        seeds.push({ index: seedIndex, targetCount: n.land * 6, currentCount: 1, ownerId: idx, name: n.name });
+        // strong AI gets 10-14 tiles, weak gets 4-7 tiles
+        const targetSize = (Math.random() > 0.5 ? Math.floor(Math.random() * 5) + 10 : Math.floor(Math.random() * 4) + 4);
+        seeds.push({ index: seedIndex, targetCount: targetSize, currentCount: 1, ownerId: idx, name: n.name });
     });
 
-    // organic border growth logic (expand to adjacent tiles until target size is reached)
     let isExpanding = true;
     while(isExpanding) {
         isExpanding = false;
         seeds.forEach(seed => {
             if (seed.currentCount < seed.targetCount) {
-                // gather all empty tiles touching this specific realm
                 let possibleMoves = [];
                 gameState.mapTiles.forEach((t, i) => {
                     if (t.ownerType === "neighbor" && t.ownerId === seed.ownerId) {
@@ -1016,15 +1071,24 @@ function generateMap() {
                 });
 
                 if (possibleMoves.length > 0) {
-                    // claim a random adjacent empty tile
                     const picked = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-                    gameState.mapTiles[picked] = { id: picked, ownerType: "neighbor", ownerId: seed.ownerId, name: `${seed.name} Region` };
+                    gameState.mapTiles[picked].ownerType = "neighbor";
+                    gameState.mapTiles[picked].ownerId = seed.ownerId;
+                    gameState.mapTiles[picked].name = `${seed.name} Region`;
                     seed.currentCount++;
                     isExpanding = true; 
                 }
             }
         });
     }
+
+    // Update AI land stat to perfectly match the exact number of tiles they claimed
+    gameState.neighbors.forEach((n, idx) => {
+        n.land = gameState.mapTiles.filter(t => t.ownerType === "neighbor" && t.ownerId === idx).length;
+    });
+
+    // Set player base land size to their initial tile count
+    gameState.landSize = gameState.mapTiles.filter(t => t.ownerType === "player" || t.ownerType === "vassal").length;
 }
 
 // checks if the player's realm (crownlands or vassals) shares a border with the target neighbor
@@ -1070,17 +1134,32 @@ function viewRealmInfo(index) {
     const target = gameState.neighbors[index];
     const totalTroops = target.army.infantry + target.army.archers + target.army.cavalry;
 
+    // analyze the specific terrain tiles owned by this realm
+    const controlledTiles = gameState.mapTiles.filter(t => t.ownerType === "neighbor" && t.ownerId === index);
+    const terrainCounts = { "Plains": 0, "Forest": 0, "Hills": 0, "Mountains": 0 };
+    controlledTiles.forEach(t => terrainCounts[t.terrain]++);
+
+    let terrainHtml = "";
+    if (terrainCounts["Plains"] > 0) terrainHtml += `<div style="margin-left: 10px;"><i class="fas fa-seedling" style="width: 25px; color: #1aff0191;"></i> Plains: ${terrainCounts["Plains"]} regions</div>`;
+    if (terrainCounts["Forest"] > 0) terrainHtml += `<div style="margin-left: 10px;"><i class="fas fa-tree" style="width: 25px; color: #006d10;"></i> Forests: ${terrainCounts["Forest"]} regions</div>`;
+    if (terrainCounts["Hills"] > 0) terrainHtml += `<div style="margin-left: 10px;"><i class="fas fa-mound" style="width: 25px; color: #008b1c;"></i> Hills: ${terrainCounts["Hills"]} regions</div>`;
+    if (terrainCounts["Mountains"] > 0) terrainHtml += `<div style="margin-left: 10px;"><i class="fas fa-mountain" style="width: 25px; color: #2c3e50;"></i> Mountains: ${terrainCounts["Mountains"]} regions</div>`;
+
     Swal.fire({
         title: `Intelligence Report`,
         html: `
             <div style="text-align: left; font-size: 1.1em; line-height: 1.6; color: var(--wood-dark);">
-                <h3 style="margin-top: 0; color: #c0392b; text-align: center;">${target.name}</h3>
+                <h3 style="margin-top: 0; color: ${target.color}; text-align: center; text-shadow: 1px 1px 1px rgba(0,0,0,0.2);">${target.name}</h3>
                 <p><b><i class="fas fa-coins" style="width: 25px;"></i> Treasury:</b> ${target.wealth} Gold</p>
-                <p><b><i class="fas fa-map" style="width: 25px;"></i> Territory:</b> ${target.land} Land Size</p>
-                <p><b><i class="fab fa-fort-awesome" style="width: 25px;"></i> Total Garrison:</b> ~${totalTroops} Men</p>
+                <p><b><i class="fas fa-swords" style="width: 25px;"></i> Total Garrison:</b> ~${totalTroops} Men</p>
                 
                 <hr style="border-top: 1px dashed var(--wood-light); margin: 15px 0;">
                 
+                <h4 style="margin: 0 0 5px 0;"><i class="fas fa-map" style="width: 25px;"></i> Geographic Hold (${target.land} Total):</h4>
+                <div style="font-size: 0.9em; color: #555; margin-bottom: 15px; border-left: 3px solid ${target.color}; padding-left: 8px;">
+                    ${terrainHtml}
+                </div>
+
                 <h4 style="margin: 0 0 10px 0;">Confirmed Unit Composition:</h4>
                 <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 5px; border: 1px solid rgba(0,0,0,0.1);">
                     <div><i class="fas fa-shield" style="width: 25px; color: #7f8c8d;"></i> <b>Infantry:</b> ${target.army.infantry}</div>
@@ -1102,6 +1181,7 @@ function attackNeighbor(index, type) {
     const target = gameState.neighbors[index];
     const pArmy = gameState.army;
     const eArmy = target.army;
+    const vetBonus = 1.0 + ((gameState.armyExperience || 0) * 0.005);
 
     // prevent attacking realms that don't share a physical border
     if (!isBorderingNeighbor(index)) {
@@ -1148,7 +1228,7 @@ function attackNeighbor(index, type) {
     const eTactics = 1.0 + (Math.random() * 0.2);
 
     // calculate final combat power
-    const playerPower = (pArmy.infantry * pForce.infMult + pArmy.archers * pForce.arcMult + pArmy.cavalry * pForce.cavMult) * pTactics;
+    const playerPower = (pArmy.infantry * pForce.infMult + pArmy.archers * pForce.arcMult + pArmy.cavalry * pForce.cavMult) * pTactics * vetBonus;
     const enemyPower = (eArmy.infantry * eForce.infMult + eArmy.archers * eForce.arcMult + eArmy.cavalry * eForce.cavMult) * eTactics;
 
     let isVictory = playerPower >= enemyPower;
@@ -1169,18 +1249,22 @@ function attackNeighbor(index, type) {
 
     // 5. apply battle results
     if (isVictory) {
+        // grant experience for ANY victory (both raid and conquer)
+        const expGained = Math.floor(Math.random() * 8) + 4; 
+        gameState.armyExperience = Math.min(100, (gameState.armyExperience || 0) + expGained);
+
         if (type === 'raid') {
             const loot = target.wealth;
             gameState.gold += loot;
             target.wealth = Math.floor(target.wealth / 2);
             
-            resultHtml += `<b>Victory!</b> Your tactical formation broke the enemy lines.<br><br><b>Loot:</b> +${loot} 🪙<br><b style="color: #c0392b;">Losses:</b> -${totalLost} troops<br><span style="font-size: 0.8em; color: #666;">(${lostInf} Inf, ${lostArc} Arc, ${lostCav} Cav)</span>`;
+            resultHtml += `<b>Victory!</b> Your tactical formation broke the enemy lines.<br><br><b>Loot:</b> +${loot} 🪙<br><b style="color: #c0392b;">Losses:</b> -${totalLost} troops<br><b style="color: #f39c12;">Veterancy:</b> +${expGained} Exp<br><span style="font-size: 0.8em; color: #666;">(${lostInf} Inf, ${lostArc} Arc, ${lostCav} Cav)</span>`;
             addLogEntry(`Successfully raided ${target.name} for ${loot} gold.`);
         } else if (type === 'conquer') {
             gameState.landSize += target.land;
             gameState.prestige += 50;
             
-            resultHtml += `<b>Total Victory!</b> You have conquered ${target.name}.<br><br><b>Territory:</b> +${target.land} Land<br><b>Prestige:</b> +50 🌟<br><b style="color: #c0392b;">Losses:</b> -${totalLost} troops`;
+            resultHtml += `<b>Total Victory!</b> You have conquered ${target.name}.<br><br><b>Territory:</b> +${target.land} Land<br><b>Prestige:</b> +50 🌟<br><b style="color: #c0392b;">Losses:</b> -${totalLost} troops<br><b style="color: #f39c12;">Veterancy:</b> +${expGained} Exp`;
             addLogEntry(`Conquered the realm of ${target.name}! They have been wiped from the map.`);
             
             // NEW WORLD MAP CONQUEST LOGIC:
@@ -1213,10 +1297,15 @@ function attackNeighbor(index, type) {
     });
 }
 
+// adds an event to the kingdom's history and keeps the last 50 entries
 function addLogEntry(message) {
-    const newLog = document.createElement("li");
-    newLog.innerText = message;
-    ui.log.prepend(newLog); 
+    if (!gameState.logs) gameState.logs = [];
+    
+    // add new log to the top of the list with the current year
+    gameState.logs.unshift({ year: gameState.year || 1, text: message });
+    
+    // trim old logs so the save file doesn't get massive
+    if (gameState.logs.length > 50) gameState.logs.pop();
 }
 
 function resetGame() {
