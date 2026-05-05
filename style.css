@@ -16,7 +16,9 @@
 }
 
 body {
-    font-family: 'Lora', serif;
+    font-family: 'MedievalSharp', cursive;
+    font-style: normal;
+    font-weight: 400;
     background-color: var(--bg-dark);
     background-image: radial-gradient(circle at center, #2a2a2a 0%, #111 100%);
     color: var(--text-main);
@@ -83,7 +85,7 @@ h1, h2, h3 {
 }
 
 .game-title {
-    font-family: 'Cinzel', serif;
+    font-family: 'MedievalSharp', cursive;
     color: var(--gold);
     font-size: 3em;
     text-align: center;
