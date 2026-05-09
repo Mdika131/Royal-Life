@@ -297,6 +297,9 @@ function updateUI() {
                         <button onclick="declareWar(${index})" style="flex: 1; padding: 6px; background: ${realm.relationship <= -20 ? '#c0392b' : '#7f8c8d'}; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;" title="Requires Hostile relations (< -20)" ${realm.relationship > -20 ? 'disabled' : ''}>
                             <i class="fas fa-gavel"></i> Declare War
                         </button>
+                        <button onclick="openEspionage(${index})" style="flex: 1; padding: 6px; background: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em;" title="Fund Covert Operations">
+                            <i class="fas fa-user-secret"></i> Espionage
+                        </button>
                     </div>
                 `;
             } else if (realm.status === "war") {
@@ -575,6 +578,24 @@ function ageOneYear() {
     const armyUpkeep = Math.ceil((gameState.army.infantry * 0.02) + (gameState.army.archers * 0.04) + (gameState.army.cavalry * 0.1)); 
     const baseUpkeepCost = 25; 
     const totalUpkeep = baseUpkeepCost + totalBuildingUpkeep + armyUpkeep;
+
+    // Player Mercenary Upkeep
+    if (gameState.hiredMercenaries && gameState.hiredMercenaries.length > 0) {
+        let mercUpkeep = 0;
+        for (let i = gameState.hiredMercenaries.length - 1; i >= 0; i--) {
+            let mercId = gameState.hiredMercenaries[i];
+            let merc = gameState.mercenaries.find(m => m.id === mercId);
+            if (merc) {
+                mercUpkeep += merc.upkeep;
+                if (gameState.gold - mercUpkeep < 0) {
+                    // Player goes bankrupt! Mercs abandon you.
+                    fireMercenary(merc.id);
+                    addLogEntry(`💰 BANKRUPTCY! Unable to pay their upkeep, the mercenary company '${merc.name}' has abandoned your army!`);
+                }
+            }
+        }
+        gameState.gold -= mercUpkeep;
+    }
     
     const netProfit = (regionalTaxes + buildingGold) - totalUpkeep;
     gameState.gold += netProfit;
@@ -2024,6 +2045,148 @@ function manageSiege(tileIndex) {
                 addLogEntry(`Lifted the siege of ${tile.name} and retreated the army.`);
                 saveGame(); updateUI();
             };
+        }
+    });
+}
+
+function openMercenaryMarket() {
+    if (!gameState.mercenaries) {
+        Swal.fire('Market Empty', 'There are no mercenary companies currently operating in the known world.', 'info');
+        return;
+    }
+
+    let mercHtml = "";
+    let availableCount = 0;
+
+    gameState.mercenaries.forEach(merc => {
+        if (merc.hiredBy === null) {
+            availableCount++;
+            mercHtml += `
+                <div style="border: 1px solid #8b5a2b; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: rgba(0,0,0,0.05);">
+                    <b style="font-size: 1.1em; color: #c0392b;">${merc.name}</b><br>
+                    <span style="font-size: 0.9em;">${merc.army.infantry} Inf | ${merc.army.archers} Arc | ${merc.army.cavalry} Cav</span><br>
+                    <i>Hire: ${merc.cost} 🪙 | Upkeep: ${merc.upkeep} 🪙/yr</i><br>
+                    <button onclick="hireMercenary('${merc.id}')" style="margin-top: 5px; padding: 5px 10px; background: #27ae60; color: white; border: none; cursor: pointer; border-radius: 3px;">Sign Contract</button>
+                </div>
+            `;
+        } else if (merc.hiredBy === "player") {
+            mercHtml += `
+                <div style="border: 1px solid #27ae60; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: rgba(39, 174, 96, 0.1);">
+                    <b style="font-size: 1.1em; color: #27ae60;">${merc.name} (Hired)</b><br>
+                    <button onclick="fireMercenary('${merc.id}')" style="margin-top: 5px; padding: 5px 10px; background: #c0392b; color: white; border: none; cursor: pointer; border-radius: 3px;">Terminate Contract</button>
+                </div>
+            `;
+        }
+    });
+
+    if (availableCount === 0 && gameState.hiredMercenaries.length === 0) {
+        mercHtml = "<i>All known mercenary companies are currently fighting in foreign wars. Check back later.</i>";
+    }
+
+    Swal.fire({
+        title: 'Mercenary Market',
+        html: `<div style="text-align: left; max-height: 300px; overflow-y: auto;">${mercHtml}</div>`,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Leave Market',
+        background: '#f4e8c1',
+        color: '#333'
+    });
+}
+
+// Helpers for Mercenaries
+window.hireMercenary = function(mercId) {
+    let merc = gameState.mercenaries.find(m => m.id === mercId);
+    if (gameState.gold >= merc.cost) {
+        gameState.gold -= merc.cost;
+        merc.hiredBy = "player";
+        gameState.hiredMercenaries.push(merc.id);
+        
+        gameState.army.infantry += merc.army.infantry;
+        gameState.army.archers += merc.army.archers;
+        gameState.army.cavalry += merc.army.cavalry;
+        
+        Swal.close();
+        addLogEntry(`💰 You have hired ${merc.name} to fight for the Crown!`);
+        saveGame(); updateUI();
+    } else {
+        alert("Not enough gold to sign the contract!");
+    }
+};
+
+window.fireMercenary = function(mercId) {
+    let merc = gameState.mercenaries.find(m => m.id === mercId);
+    merc.hiredBy = null;
+    gameState.hiredMercenaries = gameState.hiredMercenaries.filter(id => id !== mercId);
+    
+    gameState.army.infantry = Math.max(0, gameState.army.infantry - merc.army.infantry);
+    gameState.army.archers = Math.max(0, gameState.army.archers - merc.army.archers);
+    gameState.army.cavalry = Math.max(0, gameState.army.cavalry - merc.army.cavalry);
+    
+    Swal.close();
+    addLogEntry(`You have terminated your contract with ${merc.name}. Their troops have left your army.`);
+    saveGame(); updateUI();
+};
+
+function openEspionage(index) {
+    const target = gameState.neighbors[index];
+    
+    Swal.fire({
+        title: `Spy Network: ${target.name}`,
+        html: `
+            <div style="text-align: left; font-size: 0.9em; margin-bottom: 10px;">
+                <i>Fund covert operations deep within enemy territory. Warning: If your spies are caught, there will be severe diplomatic consequences.</i>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button id="spy-assassinate" class="swal2-confirm swal2-styled" style="background-color: #8e44ad; margin: 0;">Assassinate Ruler (300 🪙)</button>
+                <button id="spy-sabotage" class="swal2-confirm swal2-styled" style="background-color: #d35400; margin: 0;">Sabotage Defenses (150 🪙)</button>
+                <button id="spy-dissent" class="swal2-confirm swal2-styled" style="background-color: #c0392b; margin: 0;">Incite Rebellion (200 🪙)</button>
+            </div>
+        `,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Abort Mission',
+        background: '#f4e8c1',
+        color: '#333',
+        didOpen: () => {
+            const executeMission = (cost, type) => {
+                if (gameState.gold < cost) {
+                    alert("Not enough gold to fund this operation!"); return;
+                }
+                gameState.gold -= cost;
+                
+                // 30% chance the mission fails and you are caught
+                if (Math.random() < 0.3) {
+                    target.relationship = -100;
+                    target.memory.grudges += 2;
+                    Swal.fire('Spies Captured!', 'Your agents were discovered and executed. The enemy knows you sent them!', 'error');
+                    addLogEntry(`👁️ COVERT FAILED: Your spies were caught operating in ${target.name}. They will not forget this.`);
+                } else {
+                    // Success!
+                    if (type === "assassinate") {
+                        if (target.ruler) target.ruler.age = 999; // Will trigger death on their next turn
+                        Swal.fire('Target Eliminated', `Your assassins successfully poisoned the ruler of ${target.name}.`, 'success');
+                        addLogEntry(`🗡️ COVERT: The ruler of ${target.name} was successfully assassinated.`);
+                    } else if (type === "sabotage") {
+                        let targetTiles = gameState.mapTiles.filter(t => t.ownerId === index);
+                        if (targetTiles.length > 0) {
+                            let tile = targetTiles[Math.floor(Math.random() * targetTiles.length)];
+                            tile.defense = Math.max(1, tile.defense - 3);
+                            Swal.fire('Sabotage Successful', `Your agents burned the armories in ${tile.name}, lowering its defense.`, 'success');
+                            addLogEntry(`💥 COVERT: Sabotaged the defenses of ${tile.name} in ${target.name}.`);
+                        }
+                    } else if (type === "dissent") {
+                        if (target.factions) target.factions.peasants.unrest += 50; // Massively push towards civil war
+                        Swal.fire('Unrest Sown', `Your agents have spread rumors and armed peasant rebels in ${target.name}.`, 'success');
+                        addLogEntry(`🔥 COVERT: Incited massive peasant unrest within ${target.name}.`);
+                    }
+                }
+                saveGame(); updateUI();
+            };
+
+            document.getElementById('spy-assassinate').onclick = () => { executeMission(300, 'assassinate'); Swal.close(); };
+            document.getElementById('spy-sabotage').onclick = () => { executeMission(150, 'sabotage'); Swal.close(); };
+            document.getElementById('spy-dissent').onclick = () => { executeMission(200, 'dissent'); Swal.close(); };
         }
     });
 }
