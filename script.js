@@ -33,6 +33,39 @@ let gameState = {
     },
 };
 
+// Create the global engine
+const worldEconomy = new MedievalEconomyEngine();
+
+// Setup the map and cities
+function initWorldEconomy() {
+    // Set up your Capital (This represents the Kingdom's economy, not the King's personal gold)
+    let capitalPops = new Demographics(5000, 500, 50); // 5000 Peasants, 500 Burghers, 50 Nobles
+    let capitalResources = { 
+        grain: 1.5,  // Good farmland
+        timber: 2.0, // Forest access
+        iron: 0.5    // Small iron deposit
+    };
+    let capital = new Settlement("Capital", capitalPops, capitalResources);
+    worldEconomy.addSettlement(capital);
+
+    // Set up a neighboring city so merchants have somewhere to trade
+    let neighborPops = new Demographics(2000, 800, 20);
+    let neighborResources = { 
+        wool: 3.0, 
+        fish: 2.0 
+    };
+    let neighborCity = new Settlement("NeighborCity", neighborPops, neighborResources);
+    worldEconomy.addSettlement(neighborCity);
+
+    // Connect the two cities with a road (Distance = 10)
+    worldEconomy.addRoad("Capital", "NeighborCity", 10);
+    
+    console.log("Economic Engine Initialized successfully!");
+}
+
+// Boot up the economy when the script loads
+initWorldEconomy();
+
 // Connect to HTML
 const ui = {
     mapGrid: document.getElementById("ui-map-grid"),
